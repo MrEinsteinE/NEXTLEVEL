@@ -28,12 +28,13 @@ function StudentDashboard() {
   const navigate = useNavigate()
 
   const { user, logout } = useAuth()
+  const userId = user?._id
   const firstName = user?.name ? user.name.split(' ')[0] : 'Student'
   const userKey = user?.email ? user.email.replace(/[.@]/g, '_') : 'guest'
 
   useEffect(() => {
-    if (user?._id) fetchLiveStats()
-  }, [user?._id])
+    if (userId) fetchLiveStats()
+  }, [userId])
 
   const socket = useSocket()
   useEffect(() => {
@@ -138,7 +139,7 @@ function StudentDashboard() {
           <div className="sidebar-user" onClick={handleLogout} title="Click to Logout">
             <div className="sidebar-avatar">{firstName[0]}</div>
             <div className="sidebar-user-info">
-              <div className="name" style={{ fontWeight: '700' }}>{user.name || 'Student'}</div>
+              <div className="name" style={{ fontWeight: '700' }}>{user?.name || 'Student'}</div>
               <div className="role" style={{ color: 'var(--color-primary)', fontWeight: '700' }}>Sign Out →</div>
             </div>
           </div>
@@ -220,7 +221,7 @@ function StudentDashboard() {
 
               {/* Progress + Rewards */}
               <div className="widgets-grid" style={{ gridTemplateColumns: '2fr 1fr' }}>
-                <div className="widget glass"><ProgressVisualization branch={user.branch} userKey={userKey} /></div>
+                <div className="widget glass"><ProgressVisualization branch={user?.branch} userKey={userKey} /></div>
                 <div className="widget glass"><RewardSystem userKey={userKey} /></div>
               </div>
             </>
@@ -229,7 +230,7 @@ function StudentDashboard() {
           {/* Syllabus Tab */}
           {activeTab === 'syllabus' && (
             <div className="widget glass" style={{ maxWidth: '100%' }}>
-              <SyllabusChecklist branch={user.branch || 'ECE'} userKey={userKey} />
+              <SyllabusChecklist branch={user?.branch || 'ECE'} userKey={userKey} />
             </div>
           )}
 
@@ -259,7 +260,7 @@ function StudentDashboard() {
           {/* Progress Tab */}
           {activeTab === 'progress' && (
             <div className="widget glass">
-              <ProgressVisualization branch={user.branch} userKey={userKey} fullView />
+              <ProgressVisualization branch={user?.branch} userKey={userKey} fullView />
             </div>
           )}
 
