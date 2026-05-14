@@ -33,13 +33,3 @@ export default function Leaderboard() {
     </div>
   );
 }
-import React from 'react';
-
-export default function Leaderboard() {
-  return (
-    <div style={{padding:20}}>
-      <h1>Leaderboard (Placeholder)</h1>
-      <p>Leaderboard UI placeholder.</p>
-    </div>
-  );
-}

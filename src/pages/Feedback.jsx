@@ -31,13 +31,3 @@ export default function Feedback() {
     </div>
   );
 }
-import React from 'react';
-
-export default function Feedback() {
-  return (
-    <div style={{padding:20}}>
-      <h1>Feedback (Placeholder)</h1>
-      <p>Mentor feedback placeholder page.</p>
-    </div>
-  );
-}

@@ -22,13 +22,3 @@ export default function Notes() {
     </div>
   );
 }
-import React from 'react';
-
-export default function Notes() {
-  return (
-    <div style={{padding:20}}>
-      <h1>Notes (Placeholder)</h1>
-      <p>Notes page placeholder. Implement editor and autosave here.</p>
-    </div>
-  );
-}

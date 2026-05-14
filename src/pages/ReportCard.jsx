@@ -22,13 +22,3 @@ export default function ReportCard() {
     </div>
   );
 }
-import React from 'react';
-
-export default function ReportCard() {
-  return (
-    <div style={{padding:20}}>
-      <h1>Report Card (Placeholder)</h1>
-      <p>Report card and export placeholder.</p>
-    </div>
-  );
-}
