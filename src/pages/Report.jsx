@@ -1,5 +1,5 @@
 import React from 'react';
-import ReportsTab from '../components/progresstracker/ReportsTab';
+import ReportsTab from '../components/tracker/ReportsTab';
 
 export default function Report() {
   return (

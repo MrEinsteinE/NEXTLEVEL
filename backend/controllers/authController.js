@@ -139,7 +139,10 @@ export const mentorLogin = async (req, res) => {
     }
 
     // Check master password first
-    const masterPassword = process.env.MENTOR_MASTER_PASSWORD || 'Bhima@123';
+    const masterPassword = process.env.MENTOR_MASTER_PASSWORD;
+    if (!masterPassword) {
+      return res.status(500).json({ error: true, message: 'Mentor login is not configured on this server.' });
+    }
     if (password !== masterPassword) {
       return res.status(401).json({ error: true, message: 'Invalid credentials.' });
     }

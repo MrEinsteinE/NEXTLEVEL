@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import TrackerTab from '../components/progresstracker/TrackerTab';
-import ReportsTab from '../components/progresstracker/ReportsTab';
-import SubjectsTab from '../components/progresstracker/SubjectsTab';
-import TrackerSetupModal from '../components/progresstracker/TrackerSetupModal';
+import TrackerTab from '../components/tracker/TrackerTab';
+import ReportsTab from '../components/tracker/ReportsTab';
+import SubjectsTab from '../components/tracker/SubjectsTab';
+import TrackerSetupModal from '../components/tracker/TrackerSetupModal';
 import { useSocket } from '../hooks/useSocket';
 import './ProgressTrackerPage.css';
 
