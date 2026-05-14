@@ -13,6 +13,22 @@ import authRoutes from './routes/auth.js';
 import studentRoutes from './routes/student.js';
 import mentorRoutes from './routes/mentor.js';
 import leaderboardRoutes from './routes/leaderboard.js';
+import plannerRoutes from './routes/planner.js';
+import flashcardRoutes from './routes/flashcards.js';
+import pyqRoutes from './routes/pyq.js';
+import mockTestRoutes from './routes/mocktest.js';
+import feedbackRoutes from './routes/feedback.js';
+import reflectionsRoutes from './routes/reflections.js';
+import notificationsRoutes from './routes/notifications.js';
+import partnershipsRoutes from './routes/partnerships.js';
+import weeklyChallengeRoutes from './routes/weeklyChallenge.js';
+import notesRoutes from './routes/notes.js';
+import storiesRoutes from './routes/stories.js';
+import trackerRoutes from './routes/tracker.js';
+import focusRoutes from './routes/focus.js';
+import reportcardRoutes from './routes/reportcard.js';
+import chatRoutes from './routes/chat.js';
+import queriesRoutes from './routes/queries.js';
 
 // Services
 import { initCronJobs } from './services/cronJobs.js';
@@ -277,23 +293,6 @@ app.use('/api/auth', authRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/mentor', mentorRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
-
-import plannerRoutes from './routes/planner.js';
-import flashcardRoutes from './routes/flashcards.js';
-import pyqRoutes from './routes/pyq.js';
-import mockTestRoutes from './routes/mocktest.js';
-import feedbackRoutes from './routes/feedback.js';
-import reflectionsRoutes from './routes/reflections.js';
-import notificationsRoutes from './routes/notifications.js';
-import partnershipsRoutes from './routes/partnerships.js';
-import weeklyChallengeRoutes from './routes/weeklyChallenge.js';
-import notesRoutes from './routes/notes.js';
-import storiesRoutes from './routes/stories.js';
-import trackerRoutes from './routes/tracker.js';
-import focusRoutes from './routes/focus.js';
-import reportcardRoutes from './routes/reportcard.js';
-import chatRoutes from './routes/chat.js';
-
 app.use('/api/planner', plannerRoutes);
 app.use('/api/flashcards', flashcardRoutes);
 app.use('/api/pyq', pyqRoutes);
@@ -309,6 +308,7 @@ app.use('/api/stories', storiesRoutes);
 app.use('/api/focus', focusRoutes);
 app.use('/api/reportcard', reportcardRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/queries', queriesRoutes);
 
 // Note: temporary admin/dev routes removed after seeding for security.
 
