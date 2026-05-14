@@ -1,38 +1,26 @@
 services:
-  - type: web_service
+  - type: web
     name: nextlevel-backend
     env: node
-    plan: starter
-    region: oregon
-    branch: main
-    repo: https://github.com/<owner>/<repo>
-    path: backend
-    buildCommand: "npm ci"
-    startCommand: "npm start"
-    autoDeploy: true
-    healthCheckPath: /api/health
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: '5000'
+        value: 5000
       - key: MONGODB_URI
-        value: ''
+        sync: false
       - key: JWT_SECRET
-        value: ''
-      - key: FRONTEND_URL
-        value: ''
-      - key: APP_URL
-        value: ''
-      - key: MENTOR_MASTER_PASSWORD
-        value: ''
-      - key: EMAIL_HOST
-        value: ''
-      - key: EMAIL_PORT
-        value: ''
+        sync: false
       - key: EMAIL_USER
-        value: ''
+        sync: false
       - key: EMAIL_PASS
-        value: ''
+        sync: false
       - key: MENTOR_EMAIL
-        value: ''
+        sync: false
+      - key: MENTOR_MASTER_PASSWORD
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
