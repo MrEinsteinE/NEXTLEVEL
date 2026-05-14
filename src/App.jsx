@@ -28,11 +28,29 @@ import MyJourney from './pages/MyJourney.jsx'
 import Feedback from './pages/Feedback.jsx'
 import ProgressTrackerPage from './pages/ProgressTrackerPage.jsx'
 
+const RootRedirect = () => {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user) return <Navigate to="/login" replace />
+  return user.role === 'mentor'
+    ? <Navigate to="/mentor-dashboard" replace />
+    : <Navigate to="/dashboard" replace />
+}
+
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth()
   if (loading) return null
   if (!user) return <Navigate to="/login" replace />
   if (user.status === 'pending') return <Navigate to="/pending-approval" replace />
+  if (user.role === 'mentor') return <Navigate to="/mentor-dashboard" replace />
+  return children
+}
+
+const PendingApprovalRoute = ({ children }) => {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user) return <Navigate to="/login" replace />
+  if (user.status !== 'pending') return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -56,14 +74,14 @@ const PublicRoute = ({ children }) => {
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<RootRedirect />} />
 
       {/* Public — redirect away if already logged in */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/mentor-login" element={<PublicRoute><MentorLogin /></PublicRoute>} />
       <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/pending-approval" element={<PendingApproval />} />
+      <Route path="/pending-approval" element={<PendingApprovalRoute><PendingApproval /></PendingApprovalRoute>} />
 
       {/* Mentor profile is public so students can view it */}
       <Route path="/mentor-profile" element={<MentorProfilePage />} />
