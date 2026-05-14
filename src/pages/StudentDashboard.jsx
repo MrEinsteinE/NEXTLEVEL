@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { useNavigate, Link } from 'react-router-dom'
 import { useSocket } from '../hooks/useSocket.js'
 import axios from 'axios'
@@ -26,17 +27,13 @@ function StudentDashboard() {
   const [liveStats, setLiveStats] = useState({ studyHours: 0, tasksDone: 0, tasksTotal: 0, syllabusPercent: 0, streak: 0 })
   const navigate = useNavigate()
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const firstName = user.name ? user.name.split(' ')[0] : 'Student'
-  const userKey = user.email ? user.email.replace(/[.@]/g, '_') : 'guest'
-
-  const token = localStorage.getItem('token')
+  const { user, logout } = useAuth()
+  const firstName = user?.name ? user.name.split(' ')[0] : 'Student'
+  const userKey = user?.email ? user.email.replace(/[.@]/g, '_') : 'guest'
 
   useEffect(() => {
-    if (!user.email) navigate('/login')
-    if (user.status === 'pending') navigate('/pending-approval')
-    if (user._id && token) fetchLiveStats()
-  }, [user.email, user.status, navigate])
+    if (user?._id) fetchLiveStats()
+  }, [user?._id])
 
   const socket = useSocket()
   useEffect(() => {
@@ -52,10 +49,10 @@ function StudentDashboard() {
   const fetchLiveStats = async () => {
     try {
       const [progressRes, tasksRes, streakRes, syllabusRes] = await Promise.all([
-        axios.get(`/api/student/progress/${user._id}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: {} })),
-        axios.get(`/api/student/daily-tasks/${user._id}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: {} })),
-        axios.get(`/api/student/streak/${user._id}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: {} })),
-        axios.get(`/api/student/syllabus-progress/${user._id}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: {} }))
+        axios.get(`/api/student/progress/${user._id}`).catch(() => ({ data: {} })),
+        axios.get(`/api/student/daily-tasks/${user._id}`).catch(() => ({ data: {} })),
+        axios.get(`/api/student/streak/${user._id}`).catch(() => ({ data: {} })),
+        axios.get(`/api/student/syllabus-progress/${user._id}`).catch(() => ({ data: {} }))
       ])
       setLiveStats({
         studyHours: progressRes.data?.progress?.today?.studyHours || 0,
@@ -93,7 +90,7 @@ function StudentDashboard() {
   ]
 
   const handleLogout = () => {
-    localStorage.removeItem('user')
+    logout()
     navigate('/login')
   }
 
