@@ -26,7 +26,9 @@ try {
 
 # Mentor login
 try {
-  $body = @{ email='sankar.bhima@gmail.com'; password='Bhima@123' }
+  $mentorPwd = $env:MENTOR_MASTER_PASSWORD
+  if (-not $mentorPwd) { Write-Output 'MENTOR_LOGIN_SKIPPED: MENTOR_MASTER_PASSWORD not set'; return }
+  $body = @{ email='sankar.bhima@gmail.com'; password=$mentorPwd }
   $resp2 = Invoke-RestMethod -Uri 'http://localhost:5000/api/auth/mentor-login' -Method Post -Body (ConvertTo-Json $body) -ContentType 'application/json' -ErrorAction Stop
   Write-Output ("MENTOR_LOGIN: $($resp2.success)")
   Write-Output ("MENTOR_TOKEN: $($resp2.token)")

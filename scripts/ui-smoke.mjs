@@ -64,7 +64,7 @@ const API_BASE = process.env.API_BASE || process.env.VITE_API_URL || 'https://ne
     // If we have a userId, attempt to approve via mentor API so dashboard is accessible
     if (userId) {
       try {
-        const mentorResp = await context.request.post(`${API_BASE}/api/auth/mentor-login`, { data: { email: 'sankar.bhima@gmail.com', password: process.env.MENTOR_MASTER_PASSWORD || 'Bhima@123' } });
+        const mentorResp = await context.request.post(`${API_BASE}/api/auth/mentor-login`, { data: { email: 'sankar.bhima@gmail.com', password: process.env.MENTOR_MASTER_PASSWORD || 'changeme' } });
         if (mentorResp.ok()) {
           const mentorJson = await mentorResp.json();
           const mentorToken = mentorJson.token;

@@ -118,7 +118,7 @@ async function main() {
     // Mentor actions: mentor-login to approve story and create notifications
     console.log('\n13) Mentor login (POST)');
     const mentorEmail = `mentor+${ts}@example.com`;
-    res = await request('POST', '/auth/mentor-login', { email: mentorEmail, password: 'Bhima@123' });
+    res = await request('POST', '/auth/mentor-login', { email: mentorEmail, password: process.env.MENTOR_MASTER_PASSWORD || 'changeme' });
     console.log('mentor login ->', res.statusCode, JSON.stringify(res.body).slice(0, 800));
     const mentorToken = res.body && res.body.token;
 

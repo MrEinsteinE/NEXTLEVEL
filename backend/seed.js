@@ -64,7 +64,12 @@ async function seed() {
     const existingMentor = await User.findOne({ email: mentorEmail });
     if (!existingMentor) {
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash('Bhima@123', salt);
+      const mentorPassword = process.env.MENTOR_SEED_PASSWORD;
+      if (!mentorPassword) {
+        console.error('❌ MENTOR_SEED_PASSWORD env var not set — skipping mentor creation');
+        process.exit(1);
+      }
+      const hashedPassword = await bcrypt.hash(mentorPassword, salt);
       await User.create({
         name: 'Bhima Sankar Sir',
         email: mentorEmail,
@@ -73,7 +78,7 @@ async function seed() {
         role: 'mentor',
         status: 'approved'
       });
-      console.log('✅ Mentor account created: sankar.bhima@gmail.com / Bhima@123');
+      console.log('✅ Mentor account created: sankar.bhima@gmail.com');
     } else {
       console.log('ℹ️  Mentor account already exists');
     }

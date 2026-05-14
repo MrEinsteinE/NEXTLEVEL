@@ -47,7 +47,7 @@ async function main() {
   const studentEmail = `rt-student+${ts}@example.com`;
   const mentorEmail = `rt-mentor+${ts}@example.com`;
   const password = 'TestPass123!';
-  const mentorPassword = process.env.MENTOR_MASTER_PASSWORD || 'Bhima@123';
+  const mentorPassword = process.env.MENTOR_MASTER_PASSWORD || 'changeme';
 
   try {
     // signup/login student

@@ -8,7 +8,7 @@ async function main() {
     console.log('Requesting mentor login...');
     const res = await axios.post(`${API}/api/auth/mentor-login`, {
       email: 'mentor-test@example.com',
-      password: process.env.MENTOR_MASTER_PASSWORD || 'Bhima@123'
+      password: process.env.MENTOR_MASTER_PASSWORD || 'changeme'
     });
 
     const token = res.data.token;
