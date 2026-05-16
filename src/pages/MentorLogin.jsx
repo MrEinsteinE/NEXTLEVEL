@@ -23,17 +23,12 @@ function MentorLogin() {
     setError('')
 
     try {
-      const response = await axios.post('/api/auth/login', {
+      const response = await axios.post('/api/auth/mentor-login', {
         email: email.trim().toLowerCase(),
         password
       })
 
       const { token, user } = response.data
-
-      if (user.role !== 'mentor') {
-        setError('This portal is for mentors only. Please use Student Login.')
-        return
-      }
 
       localStorage.setItem('token', token)
       localStorage.setItem('user', JSON.stringify(user))
