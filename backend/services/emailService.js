@@ -106,3 +106,49 @@ export async function sendApprovalEmail({ name, email }) {
   await t.sendMail(mailOptions);
   console.log(`📧 Approval email sent to: ${name} (${email})`);
 }
+
+/**
+ * Send email to student when mentor answers their query
+ */
+export async function sendQueryAnswerEmail(email, name, question, answer) {
+  const t = getTransporter();
+  if (!t) {
+    console.log(`📧 [MOCK] Query answer email to: ${name} (${email})`);
+    return;
+  }
+
+  const mailOptions = {
+    from: `"NEXT_LEVEL Platform" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: '✅ Your Query Has Been Answered – NEXT_LEVEL',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 20px; border-radius: 12px; color: white; text-align: center;">
+          <h1 style="margin: 0;">📬 NEXT_LEVEL</h1>
+          <p style="margin: 5px 0 0;">Bhima Sankar Sir has answered your query</p>
+        </div>
+        <div style="padding: 20px; background: #f8f9fa; border-radius: 0 0 12px 12px;">
+          <h3>Hi ${name},</h3>
+          <p>Your question has been answered by your mentor:</p>
+          <div style="background: #e9ecef; padding: 12px; border-radius: 8px; margin: 12px 0;">
+            <strong>Your Question:</strong>
+            <p style="margin: 6px 0 0;">${question}</p>
+          </div>
+          <div style="background: #d4edda; padding: 12px; border-radius: 8px; margin: 12px 0;">
+            <strong>Mentor's Answer:</strong>
+            <p style="margin: 6px 0 0;">${answer}</p>
+          </div>
+          <p style="margin-top: 20px;">
+            <a href="${process.env.FRONTEND_URL || 'https://nextlevel-snowy.vercel.app'}/feedback"
+               style="background: #1a1a2e; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block;">
+              🚀 View in Dashboard
+            </a>
+          </p>
+        </div>
+      </div>
+    `
+  };
+
+  await t.sendMail(mailOptions);
+  console.log(`📧 Query answer email sent to: ${name} (${email})`);
+}
