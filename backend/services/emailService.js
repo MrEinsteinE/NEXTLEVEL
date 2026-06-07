@@ -14,6 +14,47 @@ function escapeHtml(s) {
 // Create reusable transporter
 let transporter = null;
 
+// Parse EMAIL_FROM ("Name <email>" or "email") into { name, email }.
+function parseFrom(raw, fallbackEmail) {
+  const s = (raw || '').trim();
+  const m = s.match(/^(.*?)\s*<([^>]+)>$/);
+  if (m) return { name: (m[1] || 'NEXT_LEVEL').trim(), email: m[2].trim() };
+  return { name: 'NEXT_LEVEL', email: s || fallbackEmail };
+}
+
+// Send via Brevo's HTTPS transactional API. Works on hosts (Render) that block
+// outbound SMTP. With no authenticated domain, Brevo delivers from your verified
+// single sender via its own DKIM-signed brevosend.com identity.
+async function sendViaBrevo({ subject, html, to }) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+  const sender = parseFrom(process.env.EMAIL_FROM, 'no-reply@example.com');
+  try {
+    const r = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        accept: 'application/json'
+      },
+      body: JSON.stringify({
+        sender,
+        to: (Array.isArray(to) ? to : [to]).map(e => ({ email: e })),
+        subject,
+        htmlContent: html
+      }),
+      signal: ctrl.signal
+    });
+    if (!r.ok) {
+      const detail = await r.text().catch(() => '');
+      throw new Error(`Brevo ${r.status}: ${detail.slice(0, 300)}`);
+    }
+    return r.json().catch(() => ({}));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Send via Resend's HTTPS API. Required on hosts (e.g. Render) that block
 // outbound SMTP — those connections hang ~90s until timeout. HTTPS is never blocked.
 async function sendViaResend({ subject, html, to }) {
@@ -49,8 +90,12 @@ async function sendViaResend({ subject, html, to }) {
 function getTransporter() {
   if (transporter) return transporter;
 
-  // Prefer Resend (HTTPS) when configured — works where SMTP is blocked (Render).
-  // Returns a transporter-shaped object so all senders below work unchanged.
+  // Prefer an HTTPS email API when configured — works where SMTP is blocked
+  // (Render). Returns a transporter-shaped object so all senders work unchanged.
+  if (process.env.BREVO_API_KEY) {
+    transporter = { sendMail: (opts) => sendViaBrevo(opts) };
+    return transporter;
+  }
   if (process.env.RESEND_API_KEY) {
     transporter = { sendMail: (opts) => sendViaResend(opts) };
     return transporter;
@@ -60,7 +105,7 @@ function getTransporter() {
   const emailPass = process.env.EMAIL_PASS;
 
   if (!emailUser || !emailPass || emailUser === 'your_email@gmail.com') {
-    console.warn('⚠️  Email not configured. Set RESEND_API_KEY (recommended) or EMAIL_USER/EMAIL_PASS to enable email.');
+    console.warn('⚠️  Email not configured. Set BREVO_API_KEY (or RESEND_API_KEY) + EMAIL_FROM, or EMAIL_USER/EMAIL_PASS, to enable email.');
     return null;
   }
 
