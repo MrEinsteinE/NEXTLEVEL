@@ -7,7 +7,7 @@ const rawUrl = import.meta.env.VITE_API_URL || '';
 // Default to the canonical Render backend hostname if Vite envs are missing.
 const baseHost = (rawUrl && String(rawUrl).trim())
   ? String(rawUrl).replace(/\/api\/?$/i, '')
-  : 'https://nextlevel-backend.onrender.com';
+  : 'https://nextlevel-5uju.onrender.com';
 
 const api = axios.create({
   baseURL: baseHost,

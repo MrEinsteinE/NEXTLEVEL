@@ -99,8 +99,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:4173',
-  'https://next-level-by-bhima-sankar-sir-mentoring.vercel.app',
-  'https://nextlevel-snowy.vercel.app'
+  'https://next-level-tau-dusky.vercel.app'
 ].filter(Boolean);
 
 function isAllowedOrigin(origin) {

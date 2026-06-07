@@ -12,7 +12,7 @@ function resolveSocketUrl() {
   if (typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)) {
     return 'http://localhost:5000';
   }
-  return 'https://nextlevel-backend.onrender.com';
+  return 'https://nextlevel-5uju.onrender.com';
 }
 const SOCKET_URL = resolveSocketUrl();
 
