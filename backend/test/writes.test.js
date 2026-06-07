@@ -14,11 +14,18 @@ const toApprove = {};  // pending student the mentor will approve
 const toReject = {};   // pending student the mentor will reject
 
 async function api(path, { method = 'GET', body, token } = {}) {
+  // CSRF double-submit: non-GET routes require a csrfToken cookie that matches the
+  // X-CSRF-Token header. These black-box tests use Bearer auth (no cookie jar), so
+  // send a self-consistent pair on mutations — otherwise the CSRF middleware 403s
+  // every POST/PUT/DELETE before it ever reaches the auth/role checks under test.
+  const isMutation = method !== 'GET' && method !== 'HEAD';
+  const CSRF = 'test-csrf-token';
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(isMutation ? { 'X-CSRF-Token': CSRF, Cookie: `csrfToken=${CSRF}` } : {})
     },
     ...(body ? { body: JSON.stringify(body) } : {})
   });
@@ -57,6 +64,12 @@ before(async () => {
   const c = await registerAndLogin('reject', 'CSE'); toReject.token = c.token; toReject.id = c.id;
   const m = await api('/api/auth/mentor-login', { method: 'POST', body: { email: `wmentor_${uniq}@example.com`, password: MENTOR_PW } });
   assert.equal(m.status, 200); mentorToken = m.data.token;
+
+  // Student routes require an APPROVED account, so the mentor must approve the
+  // reporter before it can write study data. (toApprove/toReject stay pending —
+  // the approve/reject tests act on them directly.)
+  const appr = await api(`/api/mentor/students/${reporter.id}/approve`, { method: 'PUT', token: mentorToken });
+  assert.equal(appr.status, 200, 'reporter approved for write tests');
 });
 
 const reportBody = () => ({

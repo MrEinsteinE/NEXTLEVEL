@@ -14,20 +14,64 @@ function escapeHtml(s) {
 // Create reusable transporter
 let transporter = null;
 
+// Send via Resend's HTTPS API. Required on hosts (e.g. Render) that block
+// outbound SMTP — those connections hang ~90s until timeout. HTTPS is never blocked.
+async function sendViaResend({ subject, html, to }) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        // Resend requires a verified sender. Set EMAIL_FROM to your verified
+        // domain address; onboarding@resend.dev only delivers to your own email.
+        from: process.env.EMAIL_FROM || 'NEXT_LEVEL <onboarding@resend.dev>',
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        html
+      }),
+      signal: ctrl.signal
+    });
+    if (!r.ok) {
+      const detail = await r.text().catch(() => '');
+      throw new Error(`Resend ${r.status}: ${detail.slice(0, 300)}`);
+    }
+    return r.json().catch(() => ({}));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function getTransporter() {
   if (transporter) return transporter;
+
+  // Prefer Resend (HTTPS) when configured — works where SMTP is blocked (Render).
+  // Returns a transporter-shaped object so all senders below work unchanged.
+  if (process.env.RESEND_API_KEY) {
+    transporter = { sendMail: (opts) => sendViaResend(opts) };
+    return transporter;
+  }
 
   const emailUser = process.env.EMAIL_USER;
   const emailPass = process.env.EMAIL_PASS;
 
   if (!emailUser || !emailPass || emailUser === 'your_email@gmail.com') {
-    console.warn('⚠️  Email not configured. Set EMAIL_USER and EMAIL_PASS in .env to enable notifications.');
+    console.warn('⚠️  Email not configured. Set RESEND_API_KEY (recommended) or EMAIL_USER/EMAIL_PASS to enable email.');
     return null;
   }
 
+  // SMTP fallback (local dev or hosts that allow SMTP). Timeouts stop a blocked
+  // SMTP port from hanging the request for ~90 seconds.
   transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: { user: emailUser, pass: emailPass }
+    auth: { user: emailUser, pass: emailPass },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000
   });
 
   return transporter;

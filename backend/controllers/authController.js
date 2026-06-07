@@ -241,8 +241,10 @@ export const forgotPassword = async (req, res) => {
       || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000');
     const base = frontendOrigin.replace(/\/$/, '');
     const resetUrl = `${base}/forgot-password?token=${rawToken}`;
-    try { await sendPasswordResetEmail(user.email, user.name, resetUrl); }
-    catch (e) { console.error('reset email error:', e); }
+    // Fire-and-forget: never block the HTTP response on email delivery (a blocked
+    // SMTP port would otherwise hang the request ~90s and freeze the UI spinner).
+    sendPasswordResetEmail(user.email, user.name, resetUrl)
+      .catch(e => console.error('reset email error:', e));
 
     const payload = { success: true, message: 'Password reset link sent to your email.' };
     // In local dev without email, expose the token so the flow is testable end-to-end.

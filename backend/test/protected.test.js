@@ -12,11 +12,15 @@ let studentId = null;
 let mentorToken = null;
 
 async function api(path, { method = 'GET', body, token } = {}) {
+  // CSRF double-submit for non-GET routes (see writes.test.js for rationale).
+  const isMutation = method !== 'GET' && method !== 'HEAD';
+  const CSRF = 'test-csrf-token';
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(isMutation ? { 'X-CSRF-Token': CSRF, Cookie: `csrfToken=${CSRF}` } : {})
     },
     ...(body ? { body: JSON.stringify(body) } : {})
   });
@@ -58,6 +62,11 @@ before(async () => {
   });
   assert.equal(m.status, 200, 'mentor login');
   mentorToken = m.data.token;
+
+  // Student routes require an approved account; approve the student so the
+  // "read own progress (200)" test isn't blocked by the pending-approval guard.
+  const appr = await api(`/api/mentor/students/${studentId}/approve`, { method: 'PUT', token: mentorToken });
+  assert.equal(appr.status, 200, 'student approved');
 });
 
 // ── Student route: GET /api/student/progress/:userId ──
