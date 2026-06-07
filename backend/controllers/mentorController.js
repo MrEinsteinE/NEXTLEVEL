@@ -3,6 +3,7 @@ import StudyReport from '../models/StudyReport.js';
 import SyllabusProgress from '../models/SyllabusProgress.js';
 import DailyTask from '../models/DailyTask.js';
 import DailyTrackerLog from '../models/DailyTrackerLog.js';
+import Timetable from '../models/Timetable.js';
 import { sendApprovalEmail } from '../services/emailService.js';
 
 // ─── GET /api/mentor/pending-students ──────────────────────
@@ -64,6 +65,31 @@ export const rejectStudent = async (req, res) => {
   }
 };
 
+// Shared at-risk reasoning so the dashboard's "Needs Attention" queue and the
+// approved-students stats agree. Returns explained reasons + an overall level.
+export const computeRiskReasons = ({ reportCount, daysSinceLastReport, consistencyScore, streak }) => {
+  const reasons = [];
+  if (reportCount === 0) {
+    reasons.push({ code: 'never_active', label: 'Never submitted a report', level: 'high' });
+  } else if (daysSinceLastReport >= 3) {
+    reasons.push({
+      code: 'inactive',
+      label: `No report in ${daysSinceLastReport} day${daysSinceLastReport === 1 ? '' : 's'}`,
+      level: daysSinceLastReport >= 5 ? 'high' : 'medium'
+    });
+  }
+  if (typeof consistencyScore === 'number' && consistencyScore < 40 && reportCount > 0) {
+    reasons.push({ code: 'low_consistency', label: `Low consistency (${consistencyScore}%)`, level: 'medium' });
+  }
+  if (streak === 0 && reportCount > 3 && daysSinceLastReport < 3) {
+    reasons.push({ code: 'lost_streak', label: 'Streak broken', level: 'low' });
+  }
+  const riskLevel = reasons.some(r => r.level === 'high') ? 'high'
+    : reasons.some(r => r.level === 'medium') ? 'medium'
+    : reasons.length ? 'low' : null;
+  return { riskReasons: reasons, riskLevel };
+};
+
 // ─── GET /api/mentor/approved-students ─────────────────────
 // Returns list with computed stats per student
 export const getApprovedStudents = async (req, res) => {
@@ -93,11 +119,16 @@ export const getApprovedStudents = async (req, res) => {
         date: { $gte: startOfToday }
       });
 
-      // At-risk check: no report in 3+ days
+      // At-risk check with explained reasons (so the mentor knows WHY, not just a dot).
       const lastReport = await StudyReport.findOne({ userId: student._id }).sort({ date: -1 });
       const daysSinceLastReport = lastReport
         ? Math.round((now - lastReport.date) / (1000 * 60 * 60 * 24))
         : reportCount === 0 ? 999 : 0;
+
+      const { riskReasons, riskLevel } = computeRiskReasons({
+        reportCount, daysSinceLastReport,
+        consistencyScore: student.consistencyScore, streak: student.streak
+      });
 
       return {
         _id: student._id,
@@ -113,7 +144,9 @@ export const getApprovedStudents = async (req, res) => {
         reportCount,
         hasReportedToday: !!todayReport,
         daysSinceLastReport,
-        atRisk: daysSinceLastReport >= 3
+        atRisk: riskReasons.length > 0,
+        riskReasons,
+        riskLevel
       };
     }));
 
@@ -182,6 +215,9 @@ export const getStudentDetail = async (req, res) => {
     // Today's tasks
     const todayTasks = await DailyTask.findOne({ userId: user._id, date: { $gte: startOfToday } });
 
+    // Latest timetable from the Timetable collection (same source the student reads).
+    const timetableDoc = await Timetable.findOne({ studentId: user._id }).sort({ weekStart: -1 });
+
     res.json({
       success: true,
       student: {
@@ -205,6 +241,7 @@ export const getStudentDetail = async (req, res) => {
       },
       recentReports,
       syllabusPercentage,
+      timetable: timetableDoc,
       todayTasks: todayTasks?.tasks || []
     });
   } catch (err) {
@@ -225,20 +262,35 @@ export const getStudentTracker = async (req, res) => {
 };
 
 // ─── POST /api/mentor/timetable/:userId ────────────────────
+// Saves to the Timetable collection (what the student's dashboard reads), so a
+// timetable the mentor saves actually shows up for the student.
 export const setTimetable = async (req, res) => {
   try {
     const user = await User.findById(req.params.userId);
     if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
 
-    const { timetable } = req.body;
-    if (!Array.isArray(timetable)) {
-      return res.status(400).json({ error: true, message: 'timetable must be an array of { day, subjects, targetHours }.' });
+    // The editor posts { weekStart, days: [{ day, subject, topic, targetHours, description }] }.
+    const { weekStart, days } = req.body;
+    if (!Array.isArray(days)) {
+      return res.status(400).json({ error: true, message: 'days must be an array of { day, subject, topic, targetHours }.' });
     }
 
-    user.timetable = timetable;
-    await user.save();
+    const timetable = await Timetable.findOneAndUpdate(
+      { studentId: user._id },
+      {
+        studentId: user._id,
+        weekStart: weekStart ? new Date(weekStart) : new Date(),
+        days,
+        updatedAt: new Date()
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
 
-    res.json({ success: true, message: 'Timetable updated.', timetable: user.timetable });
+    // Notify the student in real time.
+    const io = req.app.get('io');
+    if (io) io.to(`student_${user._id}`).emit('timetable-updated', { timetable });
+
+    res.json({ success: true, message: 'Timetable saved.', timetable });
   } catch (err) {
     console.error('setTimetable error:', err);
     res.status(500).json({ error: true, message: 'Server error.' });
@@ -277,3 +329,89 @@ function getStartOfWeek(date) {
   d.setUTCHours(0, 0, 0, 0);
   return d;
 }
+
+// ─── GET /api/mentor/student/:userId/feedback-suggestions ──
+// Generates ready-to-edit feedback drafts from the student's last 7 days, so the
+// mentor never starts from a blank box. Returns drafts tailored to the situation.
+export const getFeedbackSuggestions = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select('name streak consistencyScore targets journeySteps');
+    if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
+
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 86400000);
+    const reports = await StudyReport.find({ userId: user._id, date: { $gte: weekAgo } }).lean();
+    const hours = reports.reduce((s, r) => s + (r.studyHours || 0), 0);
+    const pyqs = reports.reduce((s, r) => s + (r.pyqsSolved || 0), 0);
+    const accVals = reports.map(r => r.accuracy).filter(a => typeof a === 'number' && a >= 0);
+    const avgAcc = accVals.length ? Math.round(accVals.reduce((a, b) => a + b, 0) / accVals.length) : null;
+    const lastReport = await StudyReport.findOne({ userId: user._id }).sort({ date: -1 });
+    const daysSince = lastReport ? Math.round((now - lastReport.date) / 86400000) : 999;
+    const targetWeek = (user.targets?.daily || 6) * 7;
+    const consistency = user.consistencyScore;
+    const fname = (user.name || 'there').split(' ')[0];
+    const journeyDone = (user.journeySteps || []).filter(s => s.completed).length;
+
+    const suggestions = [];
+    if (daysSince >= 3) {
+      suggestions.push({ type: 'reconnect', label: 'Re-engage', text: `Hi ${fname}, I noticed you haven't logged any study time in ${daysSince} days. Is everything okay? Let's restart gently — even one focused hour today gets the momentum back. I'm here if you're stuck on anything.` });
+    }
+    if (typeof consistency === 'number' && consistency < 40 && reports.length > 0) {
+      suggestions.push({ type: 'consistency', label: 'Consistency', text: `${fname}, your consistency was ${consistency}% this week. Let's set a smaller daily target you can hit every single day — steady beats intense. Consistency is what cracks GATE.` });
+    }
+    if (hours >= targetWeek * 0.7 && hours > 0) {
+      suggestions.push({ type: 'praise', label: 'Praise', text: `Excellent work this week, ${fname} — ${(Math.round(hours * 10) / 10)} hours logged! Your discipline is showing. Keep this rhythm and the results will follow.` });
+    }
+    if (avgAcc !== null && avgAcc < 55) {
+      suggestions.push({ type: 'accuracy', label: 'Accuracy', text: `${fname}, your PYQ accuracy is around ${avgAcc}% this week. Before moving to new topics, revisit the questions you got wrong and note the concept gap — accuracy will climb fast.` });
+    }
+    if (user.streak >= 7) {
+      suggestions.push({ type: 'streak', label: 'Streak', text: `${user.streak}-day streak, ${fname}! That consistency is exactly what separates rankers from the rest. Proud of you — don't break the chain.` });
+    }
+    if (pyqs >= 50) {
+      suggestions.push({ type: 'pyq', label: 'PYQ effort', text: `Great PYQ effort, ${fname} — ${pyqs} solved this week. Now focus on quality: for every 10 you solve, deeply analyse the 2-3 you found hardest.` });
+    }
+    if (suggestions.length === 0) {
+      suggestions.push({ type: 'encourage', label: 'Encourage', text: `Keep going, ${fname}! You've completed ${journeyDone}/8 journey steps. Stay consistent with your daily logs and reach out whenever you need direction.` });
+    }
+
+    res.json({
+      success: true,
+      stats: { hours: Math.round(hours * 10) / 10, pyqs, avgAcc, daysSince, consistency, streak: user.streak },
+      suggestions
+    });
+  } catch (err) {
+    console.error('getFeedbackSuggestions error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// ─── GET /api/mentor/weekly-digest ─────────────────────────
+// One row per approved student summarising the current week, so the mentor sees
+// everyone's progress at a glance without opening each profile.
+export const getWeeklyDigest = async (req, res) => {
+  try {
+    const weekStart = getStartOfWeek(new Date());
+    const students = await User.find({ role: 'student', status: 'approved' })
+      .select('name branch streak consistencyScore targets').sort({ name: 1 });
+    const digest = await Promise.all(students.map(async (s) => {
+      const reports = await StudyReport.find({ userId: s._id, date: { $gte: weekStart } }).lean();
+      const hours = reports.reduce((a, r) => a + (r.studyHours || 0), 0);
+      const pyqs = reports.reduce((a, r) => a + (r.pyqsSolved || 0), 0);
+      const accVals = reports.map(r => r.accuracy).filter(a => typeof a === 'number' && a >= 0);
+      const avgAcc = accVals.length ? Math.round(accVals.reduce((a, b) => a + b, 0) / accVals.length) : null;
+      const targetWeek = (s.targets?.daily || 6) * 7;
+      return {
+        _id: s._id, name: s.name, branch: s.branch, streak: s.streak,
+        consistencyScore: s.consistencyScore,
+        studyHours: Math.round(hours * 10) / 10, targetHours: targetWeek,
+        pyqs, avgAcc, reportsThisWeek: reports.length,
+        onTrack: targetWeek > 0 && hours >= targetWeek * 0.7
+      };
+    }));
+    res.json({ success: true, weekStart, digest });
+  } catch (err) {
+    console.error('getWeeklyDigest error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};

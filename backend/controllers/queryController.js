@@ -5,15 +5,29 @@ import { sendQueryAnswerEmail } from '../services/emailService.js';
 // POST /api/queries (student creates query - Issue #9)
 export const createQuery = async (req, res) => {
   try {
-    const { subject, question } = req.body;
+    const { subject, question, images } = req.body;
     if (!question) {
       return res.status(400).json({ message: 'Question is required' });
+    }
+
+    // Validate optional image attachments: up to 3 small data:image URLs.
+    const safeImages = [];
+    if (Array.isArray(images)) {
+      if (images.length > 3) return res.status(400).json({ message: 'You can attach up to 3 images.' });
+      for (const img of images) {
+        if (typeof img !== 'string' || !/^data:image\/(png|jpe?g|gif|webp);base64,/i.test(img)) {
+          return res.status(400).json({ message: 'Invalid image attachment.' });
+        }
+        if (img.length > 720 * 1024) return res.status(400).json({ message: 'Each image must be under ~500 KB.' });
+        safeImages.push(img);
+      }
     }
 
     const query = await Query.create({
       userId: req.user._id,
       subject,
       question,
+      images: safeImages,
       status: 'pending'
     });
 
@@ -68,6 +82,9 @@ export const answerQuery = async (req, res) => {
     const { answer } = req.body;
     if (!answer) {
       return res.status(400).json({ message: 'Answer is required' });
+    }
+    if (!/^[a-f\d]{24}$/i.test(String(req.params.id || ''))) {
+      return res.status(400).json({ message: 'Invalid query id' });
     }
 
     const query = await Query.findByIdAndUpdate(

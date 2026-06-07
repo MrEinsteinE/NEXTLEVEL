@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Sun, Moon } from 'lucide-react';
 
 const ThemeToggle = () => {
   const getInitial = () => {
@@ -38,7 +39,7 @@ const ThemeToggle = () => {
         cursor: 'pointer'
       }}
     >
-      {theme === 'dark' ? '🌙' : '☀️'}
+      {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
     </button>
   );
 };

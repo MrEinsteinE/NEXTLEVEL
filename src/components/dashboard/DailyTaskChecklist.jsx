@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { defaultDailyTasks } from '../../data/platformData.js'
 import confetti from 'canvas-confetti'
 import toast, { Toaster } from 'react-hot-toast'
+import { FileText, X, Flame } from 'lucide-react'
 import './DailyTaskChecklist.css'
 
 function DailyTaskChecklist({ fullView }) {
@@ -11,17 +11,14 @@ function DailyTaskChecklist({ fullView }) {
   const [loading, setLoading] = useState(true)
 
   const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const token = localStorage.getItem('token')
 
   useEffect(() => {
-    if (user._id && token) fetchTasks()
+    if (user._id) fetchTasks()
   }, [])
 
   const fetchTasks = async () => {
     try {
-      const res = await axios.get(`/api/student/daily-tasks/${user._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const res = await axios.get(`/api/student/daily-tasks/${user._id}`)
       // Map API task.name to task.text for compatibility with existing UI if needed, but we'll adapt the UI slightly
       setTasks(res.data.tasks || [])
     } catch (err) {
@@ -39,17 +36,24 @@ function DailyTaskChecklist({ fullView }) {
       const res = await axios.post(`/api/student/daily-tasks/${user._id}`, {
         date: new Date().toISOString(),
         tasks: updated
-      }, { headers: { Authorization: `Bearer ${token}` } })
-      
+      })
+
       setTasks(res.data.tasks || updated)
-      
+
       if (res.data.allCompleted && !wasAllCompleted) {
         confetti({
           particleCount: 150,
           spread: 80,
           origin: { y: 0.6 }
         })
-        toast.success("Tasks completed! Streak updated! 🔥", { position: 'bottom-right' })
+        toast.success(
+          (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              Tasks completed! Streak updated! <Flame size={16} strokeWidth={2} />
+            </span>
+          ),
+          { position: 'bottom-right' }
+        )
       }
     } catch (err) {
       console.error('Failed to update tasks:', err)
@@ -67,7 +71,7 @@ function DailyTaskChecklist({ fullView }) {
       const res = await axios.post(`/api/student/daily-tasks/${user._id}`, {
         date: new Date().toISOString(),
         tasks: updated
-      }, { headers: { Authorization: `Bearer ${token}` } })
+      })
       setTasks(res.data.tasks || updated)
     } catch (err) {
       console.error('Failed to add task:', err)
@@ -81,7 +85,7 @@ function DailyTaskChecklist({ fullView }) {
       const res = await axios.post(`/api/student/daily-tasks/${user._id}`, {
         date: new Date().toISOString(),
         tasks: updated
-      }, { headers: { Authorization: `Bearer ${token}` } })
+      })
       setTasks(res.data.tasks || updated)
     } catch (err) {
       console.error('Failed to delete task:', err)
@@ -96,7 +100,7 @@ function DailyTaskChecklist({ fullView }) {
     <div className={`daily-tasks-widget ${fullView ? 'full' : ''}`}>
       <Toaster />
       <div className="tasks-header">
-        <h3>📝 Today's Tasks</h3>
+        <h3><FileText size={18} strokeWidth={2} style={{ verticalAlign: '-3px' }} /> Today's Tasks</h3>
         <span className="tasks-progress-text">{completedCount}/{totalCount} Completed</span>
       </div>
       
@@ -112,7 +116,7 @@ function DailyTaskChecklist({ fullView }) {
               <span className="task-custom-check"></span>
               <span className="task-text">{task.name || task.text}</span>
             </label>
-            {fullView && <button className="task-delete" onClick={() => deleteTask(i)}>×</button>}
+            {fullView && <button className="task-delete" onClick={() => deleteTask(i)} aria-label="Delete task"><X size={16} strokeWidth={2} /></button>}
           </div>
         ))}
       </div>

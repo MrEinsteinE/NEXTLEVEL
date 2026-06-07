@@ -41,8 +41,12 @@ export const getCardsList = async (req, res) => {
 export const reviewCard = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { cardId, rating } = req.body;
-    if (!cardId || rating === undefined) return res.status(400).json({ error: true, message: 'cardId and rating required' });
+    const { cardId } = req.body;
+    if (!cardId || req.body.rating === undefined) return res.status(400).json({ error: true, message: 'cardId and rating required' });
+    const rating = Number(req.body.rating);
+    if (!Number.isFinite(rating) || rating < 0 || rating > 5) {
+      return res.status(400).json({ error: true, message: 'rating must be a number between 0 and 5' });
+    }
 
     let prog = await FlashcardProgress.findOne({ userId });
     if (!prog) {
@@ -95,6 +99,23 @@ export const addCustomCard = async (req, res) => {
   } catch (err) {
     console.error('addCustomCard error:', err);
     res.status(500).json({ error: true, message: 'Server error adding custom card.' });
+  }
+};
+
+// DELETE /api/flashcards/custom/:cardId — remove one of the user's own custom cards
+export const removeCustomCard = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const prog = await FlashcardProgress.findOne({ userId });
+    if (!prog) return res.status(404).json({ error: true, message: 'No cards found.' });
+    const card = prog.customCards.id(req.params.cardId);
+    if (!card) return res.status(404).json({ error: true, message: 'Card not found.' });
+    card.deleteOne();
+    await prog.save();
+    res.json({ success: true, custom: prog.customCards });
+  } catch (err) {
+    console.error('removeCustomCard error:', err);
+    res.status(500).json({ error: true, message: 'Server error removing card.' });
   }
 };
 

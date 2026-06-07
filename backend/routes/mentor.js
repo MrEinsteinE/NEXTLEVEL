@@ -4,7 +4,8 @@ import { requireRole } from '../middleware/role.js';
 import {
   getPendingStudents, approveStudent, rejectStudent,
   getApprovedStudents, getStudentDetail, getStudentTracker,
-  setTimetable, updateJourneyStep
+  setTimetable, updateJourneyStep, computeRiskReasons,
+  getFeedbackSuggestions, getWeeklyDigest
 } from '../controllers/mentorController.js';
 
 const router = Router();
@@ -18,10 +19,35 @@ router.use(requireRole(['mentor']));
 router.get('/students', async (req, res) => {
   try {
     const User = (await import('../models/User.js')).default;
+    const StudyReport = (await import('../models/StudyReport.js')).default;
     const students = await User.find({ role: 'student' })
       .select('name email branch status streak consistencyScore badges lastActiveDate createdAt')
       .sort({ createdAt: -1 });
-    res.json(students);
+    const now = Date.now();
+    // Enrich approved students with explained at-risk reasons for the
+    // dashboard's auto-prioritised "Needs Attention" queue.
+    const enriched = await Promise.all(students.map(async (s) => {
+      const obj = s.toObject();
+      if (s.status === 'approved') {
+        const reportCount = await StudyReport.countDocuments({ userId: s._id });
+        const lastReport = await StudyReport.findOne({ userId: s._id }).sort({ date: -1 });
+        const daysSinceLastReport = lastReport
+          ? Math.round((now - new Date(lastReport.date).getTime()) / 86400000)
+          : 999;
+        const { riskReasons, riskLevel } = computeRiskReasons({
+          reportCount, daysSinceLastReport, consistencyScore: s.consistencyScore, streak: s.streak
+        });
+        obj.reportCount = reportCount;
+        obj.daysSinceLastReport = daysSinceLastReport;
+        obj.riskReasons = riskReasons;
+        obj.riskLevel = riskLevel;
+      } else {
+        obj.riskReasons = [];
+        obj.riskLevel = null;
+      }
+      return obj;
+    }));
+    res.json(enriched);
   } catch (err) {
     console.error('GET /mentor/students error:', err);
     res.status(500).json({ error: true, message: 'Server error.' });
@@ -35,6 +61,12 @@ router.put('/students/:userId/reject', rejectStudent);
 // ─── Also support the original POST routes ──────────────────
 router.post('/approve-student/:userId', approveStudent);
 router.post('/reject-student/:userId', rejectStudent);
+
+// ─── Weekly digest (all approved students, current week) ────
+router.get('/weekly-digest', getWeeklyDigest);
+
+// ─── Auto-suggested feedback drafts for one student ─────────
+router.get('/student/:userId/feedback-suggestions', getFeedbackSuggestions);
 
 // ─── Student detail ─────────────────────────────────────────
 // Frontend calls GET /api/mentor/student/:id/detail
@@ -59,36 +91,37 @@ router.get('/student/:userId/reports', async (req, res) => {
 });
 
 // ─── Mentorship steps (journey) ─────────────────────────────
-// Frontend calls POST /api/mentor/step/:id with { steps: [...] }
+// Frontend calls POST /api/mentor/step/:id with { steps: [{ title, completed }] }.
+// Writes to User.journeySteps — the SAME source the mentor modal loads from and
+// the student's journey reads — so saves persist and reach the student. (Previously
+// this wrote to an orphaned MentorshipStep collection, so mentor saves were lost.)
 router.post('/step/:userId', async (req, res) => {
   try {
-    const MentorshipStep = (await import('../models/MentorshipStep.js')).default;
+    const User = (await import('../models/User.js')).default;
     const { steps } = req.body;
-    
-    let doc = await MentorshipStep.findOne({ studentId: req.params.userId });
-    if (!doc) {
-      doc = new MentorshipStep({ studentId: req.params.userId });
-      await doc.save(); // triggers pre-save hook to create default steps
-    }
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
 
-    // Update each step's completed status
     if (Array.isArray(steps)) {
       for (const update of steps) {
-        const existing = doc.steps.find(s => s.stepNumber === update.stepNumber);
-        if (existing) {
-          existing.completed = !!update.completed;
-          existing.completedAt = update.completed ? new Date() : null;
+        const name = update.title || update.name;
+        const step = (user.journeySteps || []).find(s => s.name === name);
+        if (step) {
+          step.completed = !!update.completed;
+          step.completedDate = update.completed ? (step.completedDate || new Date()) : null;
         }
       }
-      await doc.save();
+      await user.save();
     }
 
     const io = req.app.get('io');
-    if (io) {
-      io.emit('journey-updated', { userId: req.params.userId, steps: doc.steps });
-    }
+    if (io) io.to(`student_${req.params.userId}`).emit('journey-updated', { userId: req.params.userId, journeySteps: user.journeySteps });
 
-    res.json({ success: true, steps: doc.steps });
+    // Return in the shape the modal loads (stepNumber/title/completed/completedAt).
+    const out = (user.journeySteps || []).map((j, i) => ({
+      stepNumber: i + 1, title: j.name, completed: j.completed, completedAt: j.completedDate
+    }));
+    res.json({ success: true, steps: out });
   } catch (err) {
     console.error('POST /mentor/step/:id error:', err);
     res.status(500).json({ error: true, message: 'Server error.' });

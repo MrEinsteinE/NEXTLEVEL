@@ -9,14 +9,38 @@
 
 .viz-header h3 { font-size: var(--fs-base); font-weight: 700; color: var(--color-text-primary); }
 
-.viz-select {
-  padding: 4px 8px; border-radius: var(--radius-md); border: 1px solid var(--color-border);
-  font-size: var(--fs-xs); color: var(--color-text-secondary); background: var(--color-bg-input);
-  outline: none; cursor: pointer;
+/* Polished custom dropdown (replaces the unstyled native <select>) */
+.viz-dropdown { position: relative; }
+.viz-dropdown-trigger {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 12px; border-radius: 10px;
+  border: 1px solid var(--color-border); background: var(--color-bg-card);
+  color: var(--color-text-primary); font-size: var(--fs-xs); font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: border-color .15s, box-shadow .15s;
 }
+.viz-dropdown-trigger:hover { border-color: var(--color-primary); }
+.viz-dropdown-trigger:focus-visible { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 4px var(--color-primary-light); }
+.viz-dd-chevron { color: var(--color-text-muted); transition: transform .18s ease; }
+.viz-dd-chevron.open { transform: rotate(180deg); }
+.viz-dropdown-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
+  min-width: 168px; padding: 6px;
+  background: var(--color-bg-card); border: 1px solid var(--color-border);
+  border-radius: 12px; box-shadow: 0 14px 34px rgba(2, 6, 23, .16);
+  animation: vizDd .14s ease;
+}
+@keyframes vizDd { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.viz-dd-option {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 8px 10px; border: none; border-radius: 8px;
+  background: transparent; color: var(--color-text-secondary);
+  font-size: var(--fs-sm); font-weight: 600; cursor: pointer; text-align: left; font-family: inherit;
+}
+.viz-dd-option:hover { background: var(--color-bg); color: var(--color-text-primary); }
+.viz-dd-option.active { color: var(--color-primary); font-weight: 800; }
 
 .viz-content {
-  display: flex; gap: var(--sp-6); align-items: center; flex: 1;
+  display: flex; gap: var(--sp-6); align-items: flex-start; flex: 1;
 }
 
 .pie-chart-container {
@@ -33,8 +57,6 @@
 
 .subject-bars {
   flex: 1; display: flex; flex-direction: column; gap: var(--sp-3);
-  max-height: 250px;
-  overflow-y: auto;
   padding-right: 8px;
 }
 

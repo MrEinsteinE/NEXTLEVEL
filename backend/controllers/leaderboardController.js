@@ -2,24 +2,47 @@ import User from '../models/User.js';
 import StudyReport from '../models/StudyReport.js';
 import Leaderboard from '../models/Leaderboard.js';
 
+// In-memory throttle: standings are also refreshed hourly by cron, so we only
+// recompute on read when the cached board is older than this TTL. This avoids a
+// full N-student recompute on every page load while still reflecting a freshly
+// submitted report within a few seconds.
+let lastRefreshAt = 0;
+const REFRESH_TTL_MS = 30 * 1000;
+
 // GET /api/leaderboard
 export const getLeaderboard = async (req, res) => {
   try {
+    // Best-effort refresh, throttled so concurrent viewers don't each recompute.
+    if (Date.now() - lastRefreshAt > REFRESH_TTL_MS) {
+      lastRefreshAt = Date.now();
+      try { await refreshLeaderboard(); } catch (e) { console.warn('Leaderboard refresh skipped:', e.message); }
+    }
+
+    // Emails are only exposed to mentors; peers shouldn't see each other's email.
+    const isMentor = req.user?.role === 'mentor';
+    const userFields = `name branch streak badges points${isMentor ? ' email' : ''}`;
+
     const entries = await Leaderboard.find()
-      .sort({ totalMockScore: -1 })
-      .populate('userId', 'name branch streak badges')
+      .sort({ totalMockScore: -1, totalStudyHours: -1 })
+      .populate('userId', userFields)
       .limit(50);
 
-    const ranked = entries.map((entry, index) => ({
-      rank: index + 1,
-      name: entry.userId?.name || 'Unknown',
-      branch: entry.userId?.branch || 'N/A',
-      streak: entry.userId?.streak || 0,
-      badgeCount: entry.userId?.badges?.length || 0,
-      totalMockScore: entry.totalMockScore,
-      latestMockScore: entry.latestMockScore,
-      totalStudyHours: entry.totalStudyHours
-    }));
+    const ranked = entries
+      .filter(entry => entry.userId)
+      .map((entry, index) => ({
+        rank: index + 1,
+        id: entry.userId._id,
+        name: entry.userId.name || 'Unknown',
+        ...(isMentor ? { email: entry.userId.email || '' } : {}),
+        branch: entry.userId.branch || 'N/A',
+        streak: entry.userId.streak || 0,
+        points: entry.userId.points || 0,
+        badgeCount: entry.userId.badges?.length || 0,
+        totalMockScore: entry.totalMockScore || 0,
+        latestMockScore: entry.latestMockScore || 0,
+        totalHours: entry.totalStudyHours || 0,
+        totalStudyHours: entry.totalStudyHours || 0
+      }));
 
     res.json({ success: true, leaderboard: ranked });
   } catch (err) {

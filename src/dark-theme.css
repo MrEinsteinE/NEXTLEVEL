@@ -1,0 +1,613 @@
+/* ============================================================
+   NEXT_LEVEL — DARK THEME OVERRIDES
+   Additive-only. Every rule is scoped to [data-theme="dark"] so
+   it applies in dark mode only and wins on specificity over the
+   hardcoded light colours in the page/component stylesheets.
+   The light CSS files are NOT modified — this is the single
+   override layer. Brand/semantic accents (primary purple, accent
+   orange, success/danger/warning) are deliberately preserved;
+   only neutral surfaces and neutral text are re-mapped.
+
+   Base dark tokens live in index.css:
+     --color-bg #0F0E1A  --color-bg-card #1A1830
+     --color-bg-sidebar #13111F  --color-text-primary #F1F0FF
+     --color-text-secondary #9CA3AF  --color-border #2E2B4A
+   ============================================================ */
+
+/* ---- Extra reusable dark tokens ---- */
+[data-theme="dark"] {
+  --dk-elevated: #211E3D;   /* inputs / inner panels */
+  --dk-hover: #2A2750;      /* row / item hover */
+  --dk-text-muted: #8B89A6; /* muted secondary text */
+}
+
+/* ============================================================
+   Auth.css — login / signup / forgot / verify-email
+   ============================================================ */
+[data-theme="dark"] .auth-card {
+  background: rgba(26, 24, 48, 0.72);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .form-group input,
+[data-theme="dark"] .form-group select {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .form-group input::placeholder {
+  color: var(--dk-text-muted);
+}
+[data-theme="dark"] .form-group input:focus,
+[data-theme="dark"] .form-group select:focus {
+  background: var(--dk-elevated);
+  border-color: var(--color-primary);
+}
+[data-theme="dark"] .branch-option {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .branch-option strong {
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .branch-option.selected {
+  background: rgba(108, 99, 255, 0.18);
+  border-color: var(--color-primary);
+}
+[data-theme="dark"] .branch-option.selected strong {
+  color: #a5a0ff;
+}
+[data-theme="dark"] .mentor-link-box {
+  background: rgba(108, 99, 255, 0.18);
+  color: var(--color-text-primary);
+}
+
+/* ============================================================
+   MentorDashboard.css — page, header, stats, list, filters
+   ============================================================ */
+[data-theme="dark"] .mentor-dash-page {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .mentor-header-premium {
+  background: rgba(19, 17, 31, 0.85);
+  border-bottom-color: var(--color-border);
+}
+[data-theme="dark"] .welcome-msg { color: var(--color-text-secondary); }
+[data-theme="dark"] .logout-btn-premium {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+  color: #f87171;
+}
+[data-theme="dark"] .logout-btn-premium:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Pastel gradient stat cards → translucent same-hue tints */
+[data-theme="dark"] .m-stat-card.blue    { background: rgba(59, 130, 246, 0.14); border-color: rgba(59, 130, 246, 0.3); color: #93c5fd; }
+[data-theme="dark"] .m-stat-card.purple  { background: rgba(139, 92, 246, 0.14); border-color: rgba(139, 92, 246, 0.3); color: #c4b5fd; }
+[data-theme="dark"] .m-stat-card.info    { background: rgba(6, 182, 212, 0.14);  border-color: rgba(6, 182, 212, 0.3);  color: #67e8f9; }
+[data-theme="dark"] .m-stat-card.success { background: rgba(34, 197, 94, 0.14);  border-color: rgba(34, 197, 94, 0.3);  color: #86efac; }
+[data-theme="dark"] .m-stat-card.warning { background: rgba(245, 158, 11, 0.14); border-color: rgba(245, 158, 11, 0.3); color: #fcd34d; }
+
+[data-theme="dark"] .m-section-container {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .m-section-header h2 { color: var(--color-text-primary); }
+[data-theme="dark"] .m-search {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .m-search input { color: var(--color-text-primary); }
+[data-theme="dark"] .m-search input::placeholder { color: var(--dk-text-muted); }
+[data-theme="dark"] .m-filters { background: var(--dk-elevated); }
+[data-theme="dark"] .m-filter-btn { color: var(--color-text-secondary); }
+[data-theme="dark"] .m-filter-btn.active {
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .m-student-item {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .m-student-item:hover { border-color: var(--dk-hover); }
+[data-theme="dark"] .pending-row { background: rgba(59, 130, 246, 0.1); }
+[data-theme="dark"] .m-name { color: var(--color-text-primary); }
+[data-theme="dark"] .m-email { color: var(--color-text-secondary); }
+[data-theme="dark"] .m-branch-tag {
+  background: var(--dk-elevated);
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .m-status-tag.approved { background: rgba(34, 197, 94, 0.16); color: #4ade80; }
+[data-theme="dark"] .m-status-tag.pending  { background: rgba(59, 130, 246, 0.16); color: #60a5fa; }
+[data-theme="dark"] .m-action-btn.secondary {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .m-action-btn.secondary:hover {
+  background: var(--dk-hover);
+  border-color: var(--dk-hover);
+}
+[data-theme="dark"] .no-data { color: var(--color-text-secondary); }
+
+/* Newer mentor content classes (.mentor-* / .student-row / etc.) */
+[data-theme="dark"] .mentor-stat-card {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .mentor-stat-card .m-stat-label { color: var(--color-text-secondary); }
+[data-theme="dark"] .mentor-section {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .section-header h2 { color: var(--color-text-primary); }
+[data-theme="dark"] .search-input {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .search-input::placeholder { color: var(--dk-text-muted); }
+[data-theme="dark"] .search-input:focus { background: var(--dk-elevated); }
+[data-theme="dark"] .filter-btn {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .click-hint,
+[data-theme="dark"] .empty-text { color: var(--dk-text-muted); }
+[data-theme="dark"] .student-row {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+}
+/* Row hover was hardcoded to a light #F1F5F9 (inline style) → light text became
+   invisible on it in dark mode. Use a dark hover surface so text stays readable. */
+[data-theme="dark"] .student-row.clickable:hover { background: var(--dk-hover); }
+[data-theme="dark"] .student-info strong { color: var(--color-text-primary); }
+[data-theme="dark"] .student-info > span { color: var(--color-text-secondary); }
+[data-theme="dark"] .branch-tag { background: rgba(108, 99, 255, 0.18); color: #a5a0ff; }
+[data-theme="dark"] .status-tag.approved { background: rgba(34, 197, 94, 0.16); color: #4ade80; }
+[data-theme="dark"] .status-tag.pending  { background: rgba(245, 158, 11, 0.16); color: #fbbf24; }
+[data-theme="dark"] .status-tag.rejected { background: rgba(239, 68, 68, 0.16); color: #f87171; }
+[data-theme="dark"] .approve-btn { background: rgba(34, 197, 94, 0.16); color: #4ade80; }
+[data-theme="dark"] .reject-btn  { background: rgba(239, 68, 68, 0.16); color: #f87171; }
+[data-theme="dark"] .row-chevron { color: var(--dk-text-muted); }
+
+/* ============================================================
+   MentorDashboard.jsx — inline <style> modal classes
+   ============================================================ */
+[data-theme="dark"] .student-modal {
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .modal-header h2 { color: var(--color-text-primary); }
+[data-theme="dark"] .modal-subtitle { color: var(--color-text-secondary); }
+[data-theme="dark"] .modal-close {
+  background: var(--dk-elevated);
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .modal-close:hover { background: rgba(239, 68, 68, 0.16); color: #f87171; }
+[data-theme="dark"] .modal-section h3 { color: var(--color-text-primary); }
+[data-theme="dark"] .modal-badge { background: rgba(108, 99, 255, 0.18); color: #a5a0ff; }
+[data-theme="dark"] .modal-report-row {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .mr-date { color: var(--color-text-primary); }
+[data-theme="dark"] .mr-details { color: var(--color-text-secondary); }
+[data-theme="dark"] .modal-sub-tabs { border-bottom-color: var(--color-border); }
+[data-theme="dark"] .modal-sub-tab { color: var(--color-text-secondary); }
+[data-theme="dark"] .step-row {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .step-row.done { background: rgba(16, 185, 129, 0.14); border-color: rgba(16, 185, 129, 0.4); }
+[data-theme="dark"] .step-row-num { color: var(--dk-text-muted); }
+[data-theme="dark"] .step-row-title { color: var(--color-text-primary); }
+
+/* ============================================================
+   StudentDashboard.css — sidebar, header, stat cards, widgets
+   ============================================================ */
+[data-theme="dark"] .sidebar {
+  background: var(--color-bg-sidebar);
+  border-right-color: var(--color-border);
+}
+[data-theme="dark"] .sidebar-brand { border-bottom-color: var(--color-border); }
+[data-theme="dark"] .sidebar-link:hover { background: var(--dk-hover); }
+[data-theme="dark"] .sidebar-link.active { background: rgba(108, 99, 255, 0.18); color: #a5a0ff; }
+[data-theme="dark"] .sidebar-footer { border-top-color: var(--color-border); }
+[data-theme="dark"] .sidebar-user:hover { background: var(--dk-hover); }
+[data-theme="dark"] .stat-card {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .widget {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .widget:hover { border-color: var(--color-primary); }
+
+/* ============================================================
+   PendingApproval.css — glass card, info rows, resource buttons
+   ============================================================ */
+[data-theme="dark"] .pending-card {
+  background: rgba(26, 24, 48, 0.72);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] .info-item {
+  background: var(--dk-elevated);
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .pending-resources { border-top-color: var(--color-border); }
+[data-theme="dark"] .pending-resource-btn { border-color: var(--color-border); }
+[data-theme="dark"] .pending-resource-btn.youtube  { background: rgba(239, 68, 68, 0.16);  color: #f87171; }
+[data-theme="dark"] .pending-resource-btn.website  { background: rgba(59, 130, 246, 0.16); color: #60a5fa; }
+[data-theme="dark"] .pending-resource-btn.telegram { background: rgba(6, 182, 212, 0.16);  color: #67e8f9; }
+[data-theme="dark"] .pending-resource-btn.whatsapp { background: rgba(34, 197, 94, 0.16);  color: #4ade80; }
+
+/* ============================================================
+   MentorProfilePage.css — hero, sections, qualifications
+   ============================================================ */
+[data-theme="dark"] .mentor-page-header {
+  background: rgba(26, 24, 48, 0.5);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] .mentor-hero {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .mentor-photo-large { border-color: var(--color-bg-card); }
+[data-theme="dark"] .mentor-photo-section h2 { color: var(--color-text-primary); }
+[data-theme="dark"] .mentor-phone {
+  background: var(--dk-elevated);
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .mentor-qualifications h3 { color: var(--color-text-primary); }
+[data-theme="dark"] .qual-item {
+  background: var(--dk-elevated);
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .qual-item:hover { background: var(--dk-hover); }
+/* .mentor-section (profile) shares selector with mentor dashboard — covered above,
+   but the profile page adds extra padding-only rules; re-affirm card bg here. */
+[data-theme="dark"] .mentor-section h3 { color: var(--color-text-primary); }
+[data-theme="dark"] .subject-chip { background: rgba(108, 99, 255, 0.18); color: #a5a0ff; }
+[data-theme="dark"] .mentor-dream blockquote,
+[data-theme="dark"] .mentor-section blockquote { color: var(--color-text-secondary); }
+[data-theme="dark"] .quote-card {
+  background: rgba(108, 99, 255, 0.12);
+}
+[data-theme="dark"] .quote-card p { color: var(--color-text-secondary); }
+[data-theme="dark"] .mentor-motto .motto-line { color: var(--color-text-primary); }
+[data-theme="dark"] .community-link { border-color: var(--color-border); }
+
+/* ============================================================
+   ProgressTrackerPage.css — table
+   ============================================================ */
+[data-theme="dark"] .progress-tracker-page th,
+[data-theme="dark"] .progress-tracker-page td { border-bottom-color: var(--color-border); }
+
+/* ============================================================
+   MentorProfile.css (component) — mentor card
+   ============================================================ */
+[data-theme="dark"] .mentor-photo { border-color: var(--color-bg-card); }
+[data-theme="dark"] .mentor-stats {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+}
+
+/* ============================================================
+   ChatWidget.css — panel, list, bubbles, input
+   ============================================================ */
+[data-theme="dark"] .chat-panel { background: var(--color-bg-card); }
+[data-theme="dark"] .chat-list { background: var(--color-bg); }
+[data-theme="dark"] .chat-meta { color: var(--color-text-secondary); }
+[data-theme="dark"] .chat-text {
+  background: var(--dk-elevated);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .chat-time { color: var(--dk-text-muted); }
+[data-theme="dark"] .chat-input { border-top-color: var(--color-border); }
+[data-theme="dark"] .chat-input input {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .chat-input input::placeholder { color: var(--dk-text-muted); }
+
+/* ============================================================
+   DailyStudyReport.css — tabs, form, chips, history cards
+   ============================================================ */
+[data-theme="dark"] .report-tabs { border-bottom-color: var(--color-border); }
+[data-theme="dark"] .report-tab { color: var(--color-text-secondary); }
+[data-theme="dark"] .form-row label { color: var(--color-text-primary); }
+[data-theme="dark"] .form-row input[type="text"],
+[data-theme="dark"] .form-row input[type="date"],
+[data-theme="dark"] .form-row input[type="number"],
+[data-theme="dark"] .form-row textarea {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .form-row input::placeholder,
+[data-theme="dark"] .form-row textarea::placeholder { color: var(--dk-text-muted); }
+[data-theme="dark"] .form-row input:focus,
+[data-theme="dark"] .form-row textarea:focus { background: var(--dk-elevated); }
+[data-theme="dark"] .subject-chips .subject-chip,
+[data-theme="dark"] .study-report-widget .subject-chip {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .mood-btn {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .mood-btn.selected { background: rgba(108, 99, 255, 0.18); border-color: var(--color-primary); }
+[data-theme="dark"] .mood-label { color: var(--color-text-secondary); }
+[data-theme="dark"] .report-empty { color: var(--color-text-secondary); }
+[data-theme="dark"] .report-card { border-color: var(--color-border); }
+[data-theme="dark"] .report-card-header {
+  background: var(--dk-elevated);
+  border-bottom-color: var(--color-border);
+}
+[data-theme="dark"] .report-date { color: var(--color-text-primary); }
+[data-theme="dark"] .edit-btn:hover { background: rgba(59, 130, 246, 0.16); }
+[data-theme="dark"] .delete-btn:hover { background: rgba(239, 68, 68, 0.16); }
+[data-theme="dark"] .report-stats-row { color: var(--color-text-secondary); }
+[data-theme="dark"] .report-subject-tag { background: rgba(59, 130, 246, 0.16); color: #60a5fa; }
+[data-theme="dark"] .report-topics,
+[data-theme="dark"] .report-diff,
+[data-theme="dark"] .report-plan { color: var(--color-text-secondary); }
+
+/* ============================================================
+   DailyTaskChecklist.css — task items, add form
+   ============================================================ */
+[data-theme="dark"] .task-item { background: var(--dk-elevated); }
+[data-theme="dark"] .task-item:hover { background: var(--dk-hover); }
+[data-theme="dark"] .task-custom-check { background: var(--dk-elevated); }
+[data-theme="dark"] .task-add-form input {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .task-add-form input::placeholder { color: var(--dk-text-muted); }
+
+/* ============================================================
+   Leaderboard.css is now fully theme-aware (CSS variables + rgba
+   tints that work in both modes), so no dark overrides are needed.
+   ============================================================ */
+
+/* ============================================================
+   MotivationQuotes.css — refresh btn, body card
+   ============================================================ */
+[data-theme="dark"] .refresh-btn {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .refresh-btn:hover { background: rgba(108, 99, 255, 0.18); }
+[data-theme="dark"] .motivation-body {
+  background: rgba(108, 99, 255, 0.12);
+}
+[data-theme="dark"] .motivation-text { color: var(--color-text-secondary); }
+
+/* ============================================================
+   PreparationTracker.css — cards, inputs, progress
+   ============================================================ */
+[data-theme="dark"] .prep-header h3 { color: var(--color-text-primary); }
+[data-theme="dark"] .prep-edit-btn {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .prep-card {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .prep-title { color: var(--color-text-primary); }
+[data-theme="dark"] .prep-target { color: var(--color-text-secondary); }
+[data-theme="dark"] .prep-target-input {
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .prep-separator,
+[data-theme="dark"] .prep-unit { color: var(--dk-text-muted); }
+[data-theme="dark"] .prep-progress-bar { background: var(--color-border); }
+
+/* ============================================================
+   ProgressVisualization.css — select, pie, bars
+   ============================================================ */
+[data-theme="dark"] .viz-select {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .subject-bars::-webkit-scrollbar-thumb { background: var(--color-border); }
+[data-theme="dark"] .sub-name { color: var(--color-text-secondary); }
+[data-theme="dark"] .sub-bar-bg { background: var(--dk-elevated); }
+
+/* ============================================================
+   RewardSystem.css — streak/level/badge cards
+   ============================================================ */
+[data-theme="dark"] .reward-header h3 { color: var(--color-text-primary); }
+[data-theme="dark"] .streak-card,
+[data-theme="dark"] .level-card {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .streak-num,
+[data-theme="dark"] .level-num { color: var(--color-text-primary); }
+[data-theme="dark"] .streak-label,
+[data-theme="dark"] .level-label { color: var(--color-text-secondary); }
+[data-theme="dark"] .badge-card {
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .badge-card.earned { background: rgba(34, 197, 94, 0.14); border-color: rgba(34, 197, 94, 0.4); }
+[data-theme="dark"] .badge-card.locked { background: var(--dk-elevated); }
+[data-theme="dark"] .badge-name { color: var(--color-text-primary); }
+[data-theme="dark"] .badge-desc { color: var(--color-text-secondary); }
+[data-theme="dark"] .badge-progress-bar { background: var(--color-border); }
+[data-theme="dark"] .badge-progress-text { color: var(--color-text-secondary); }
+
+/* ============================================================
+   SyllabusChecklist.css — progress, breakdown, accordion, topics
+   ============================================================ */
+[data-theme="dark"] .section-title { color: var(--color-text-primary); }
+[data-theme="dark"] .overall-progress-bar,
+[data-theme="dark"] .subject-progress-bar { background: var(--dk-elevated); }
+[data-theme="dark"] .overall-stats { color: var(--color-text-secondary); }
+[data-theme="dark"] .est-time { background: rgba(108, 99, 255, 0.18); color: #a5a0ff; }
+[data-theme="dark"] .smart-recommendation {
+  background: rgba(219, 39, 119, 0.14);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .subject-breakdown-section {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .subject-breakdown-section h3 { color: var(--color-text-primary); }
+[data-theme="dark"] .breakdown-card { background: var(--dk-elevated); }
+[data-theme="dark"] .breakdown-name { color: var(--color-text-primary); }
+[data-theme="dark"] .breakdown-progress-bg { background: var(--color-border); }
+[data-theme="dark"] .syllabus-section {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .section-header {
+  background: var(--dk-elevated);
+}
+[data-theme="dark"] .section-header:hover { background: var(--dk-hover); }
+[data-theme="dark"] .section-header h3 { color: var(--color-text-primary); }
+[data-theme="dark"] .subject-card {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .subject-header h4 { color: var(--color-text-primary); }
+[data-theme="dark"] .topic-item:hover { background: var(--dk-elevated); }
+[data-theme="dark"] .topics-list::-webkit-scrollbar-thumb { background: var(--color-border); }
+[data-theme="dark"] .topic-name { color: var(--color-text-secondary); }
+
+/* ============================================================
+   WorkingHoursTracker.css — select, summary bars
+   ============================================================ */
+[data-theme="dark"] .target-select {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .hs-label { color: var(--color-text-secondary); }
+[data-theme="dark"] .hs-value { color: var(--color-text-primary); }
+[data-theme="dark"] .hs-bar { background: var(--color-border); }
+
+/* ============================================================
+   WorkingHoursTracker.css — leftover hardcoded muted label
+   ============================================================ */
+[data-theme="dark"] .hours-subtitle { color: var(--dk-text-muted); }
+
+/* ============================================================
+   MentorshipFlow.jsx — inline <style> "Your Mentorship Journey"
+   timeline. The component's own <style> hardcodes light-theme
+   dark text (#0F172A / #1E293B / #64748B / #94A3B8) which is
+   invisible on the dark widget surface. These overrides have a
+   higher specificity ([data-theme="dark"] + class + element) than
+   the component's stylesheet selectors, so they win. The brand
+   accents (#F97316 active titles, #10B981 done state) are kept.
+   ============================================================ */
+[data-theme="dark"] .flow-header h3 { color: var(--color-text-primary); }
+[data-theme="dark"] .flow-header p { color: var(--color-text-secondary); }
+[data-theme="dark"] .flow-progress-badge {
+  background: rgba(249, 115, 22, 0.16);
+  border-color: rgba(249, 115, 22, 0.5);
+}
+[data-theme="dark"] .flow-progress-bar { background: var(--dk-elevated); }
+[data-theme="dark"] .flow-connector { background: var(--color-border); }
+[data-theme="dark"] .flow-connector.done { background: #10B981; }
+[data-theme="dark"] .step-num { color: var(--dk-text-muted); }
+[data-theme="dark"] .step-title { color: var(--color-text-primary); }
+[data-theme="dark"] .flow-step.active .step-title { color: #fb923c; }
+/* The "not yet done" step icon bubble used a light #E2E8F0 inline bg
+   (set in JSX) — on it the emoji stays visible, but for incomplete
+   steps the bubble reads better as a dark elevated surface. The inline
+   style only applies the bg when done, so this targets the idle bubble. */
+[data-theme="dark"] .step-icon-wrap { background: var(--dk-elevated); }
+
+/* ============================================================
+   PersonalTimetable.jsx — inline <style> "My Weekly Timetable"
+   widget + the "No Timetable Assigned Yet" empty state. Same
+   inline-<style> hardcoded light text problem as above.
+   ============================================================ */
+[data-theme="dark"] .timetable-widget .widget-header h3 { color: var(--color-text-primary); }
+[data-theme="dark"] .timetable-empty h4 { color: var(--color-text-primary); }
+[data-theme="dark"] .timetable-empty p { color: var(--color-text-secondary); }
+[data-theme="dark"] .timetable-progress .progress-info { color: var(--color-text-secondary); }
+[data-theme="dark"] .timetable-progress .progress-bar-track { background: var(--dk-elevated); }
+[data-theme="dark"] .timetable-day-card {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .timetable-day-card.done {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+[data-theme="dark"] .day-name { color: var(--color-text-primary); }
+[data-theme="dark"] .field-label { color: var(--dk-text-muted); }
+[data-theme="dark"] .field-value { color: var(--color-text-primary); }
+[data-theme="dark"] .field-hours { background: rgba(249, 115, 22, 0.16); }
+[data-theme="dark"] .day-desc {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-card);
+}
+[data-theme="dark"] .day-empty { color: var(--dk-text-muted); }
+[data-theme="dark"] .checkmark { background: var(--color-border); }
+
+/* ============================================================
+   WeeklyStudyChart.jsx — "Last 7 Days Overview" heading. The
+   colour here is set via an inline style= attribute (#1E293B),
+   which only an !important rule can override. Scoped tightly to
+   the chart container heading so nothing else is affected.
+   ============================================================ */
+[data-theme="dark"] .weekly-chart-container h3 { color: var(--color-text-primary) !important; }
+
+/* ============================================================
+   TimetableEditor.jsx (mentor) — inline <style> "Weekly Timetable
+   Editor". DO NOT edit the JSX; these overrides re-theme its
+   hardcoded light text/surfaces for dark mode. Brand orange save
+   button + #0F172A day-header strip (white text on it) are kept.
+   ============================================================ */
+[data-theme="dark"] .tt-editor-header h4 { color: var(--color-text-primary); }
+[data-theme="dark"] .week-picker label { color: var(--color-text-secondary); }
+[data-theme="dark"] .week-picker input {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .tt-day {
+  background: var(--dk-elevated);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .tt-day-fields input[type="text"],
+[data-theme="dark"] .tt-day-fields textarea {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .tt-day-fields input::placeholder,
+[data-theme="dark"] .tt-day-fields textarea::placeholder { color: var(--dk-text-muted); }
+[data-theme="dark"] .tt-row label { color: var(--color-text-secondary); }
+[data-theme="dark"] .tt-clear-btn {
+  background: var(--dk-elevated);
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .tt-clear-btn:hover { background: var(--dk-hover); }
+
+/* ============================================================
+   NOTE: Recharts/chart internals (axis text, grid strokes set via
+   inline #E2E8F0 / #cbd5e1 props in JSX) cannot be themed from CSS
+   and are intentionally left as-is. Only their container surfaces
+   (.chart-card, .widget, .subject-breakdown-section) are themed.
+   Brand gradients (gradient-text, .gate-countdown hero, gradient
+   submit buttons, brand active tabs) are intentionally preserved.
+   ============================================================ */

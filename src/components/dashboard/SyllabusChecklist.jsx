@@ -1,7 +1,49 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import { Rocket, BookOpen, Clock, Pin, Star, ChevronDown, ChevronRight } from 'lucide-react'
 import { getSyllabus, countAllTopics } from '../../data/syllabus.js'
 import './SyllabusChecklist.css'
+import { WidgetSkeleton } from '../common/Loaders.jsx'
+
+// Isolated so the per-second tick only re-renders the countdown,
+// not the entire (heavy) syllabus tree.
+function GateCountdown() {
+  const [t, setT] = useState({ days: 0, hours: 0, mins: 0, secs: 0 })
+
+  useEffect(() => {
+    const target = new Date('2027-02-07T09:00:00').getTime()
+    const tick = () => {
+      const diff = target - Date.now()
+      if (diff <= 0) { setT({ days: 0, hours: 0, mins: 0, secs: 0 }); return }
+      setT({
+        days: Math.floor(diff / 86400000),
+        hours: Math.floor((diff / 3600000) % 24),
+        mins: Math.floor((diff / 60000) % 60),
+        secs: Math.floor((diff / 1000) % 60)
+      })
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const pad = (n) => String(n).padStart(2, '0')
+
+  return (
+    <div className="countdown-container glass animate-fade-in">
+      <div className="countdown-title">
+        <span className="icon" style={{ display: 'inline-flex' }}><Rocket size={18} strokeWidth={2} /></span>
+        <h3 className="gradient-text">GATE 2027 Countdown</h3>
+      </div>
+      <div className="countdown-display">
+        <span className="countdown-value">{t.days}</span> Days{' '}
+        <span className="countdown-value">{pad(t.hours)}</span> Hours{' '}
+        <span className="countdown-value">{pad(t.mins)}</span> Mins{' '}
+        <span className="countdown-value">{pad(t.secs)}</span> Secs
+      </div>
+    </div>
+  )
+}
 
 function SyllabusChecklist({ branch, userKey }) {
   const [syllabus, setSyllabus] = useState([])
@@ -10,13 +52,12 @@ function SyllabusChecklist({ branch, userKey }) {
   const [loading, setLoading] = useState(true)
 
   const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const token = localStorage.getItem('token')
 
   useEffect(() => {
     const data = getSyllabus(branch)
     setSyllabus(data)
     
-    if (user._id && token) {
+    if (user._id) {
       fetchProgress()
     } else {
       setLoading(false)
@@ -25,9 +66,7 @@ function SyllabusChecklist({ branch, userKey }) {
 
   const fetchProgress = async () => {
     try {
-      const res = await axios.get(`/api/student/syllabus-progress/${user._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const res = await axios.get(`/api/student/syllabus-progress/${user._id}`)
       const progressMap = {}
       if (res.data.progress) {
         res.data.progress.forEach(p => {
@@ -56,7 +95,7 @@ function SyllabusChecklist({ branch, userKey }) {
         topicIndex: subjectIdx,
         subtopicIndex: topicIdx,
         completed: newProgress
-      }, { headers: { Authorization: `Bearer ${token}` } })
+      })
     } catch (err) {
       console.error('Failed to sync progress:', err)
       // Revert on failure
@@ -142,38 +181,30 @@ function SyllabusChecklist({ branch, userKey }) {
   const overall = getOverallProgress()
   const recommendation = getRecommendation()
   
-  if (loading) return <div className="syllabus-checklist"><p style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>Loading syllabus...</p></div>
+  if (loading) return <div className="syllabus-checklist"><WidgetSkeleton /></div>
 
   return (
     <div className="syllabus-checklist">
-      {/* Inserted Countdown Component */}
-      <div className="countdown-container glass animate-fade-in">
-        <div className="countdown-title">
-          <span className="icon">🚀</span>
-          <h3 className="gradient-text">GATE 2026 Countdown</h3>
-        </div>
-        {/* Placeholder for actual countdown logic */}
-        <div className="countdown-display">
-          {/* Example: 123 Days 04 Hours 30 Mins */}
-          <span className="countdown-value">--</span> Days <span className="countdown-value">--</span> Hours <span className="countdown-value">--</span> Mins
-        </div>
-      </div>
+      {/* Live GATE countdown (isolated so the 1s tick doesn't re-render the syllabus tree) */}
+      <GateCountdown />
 
       <div className="syllabus-header">
-        <h2 className="section-title">📚 {branch} Syllabus Progress</h2>
+        <h2 className="section-title" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          <BookOpen size={20} strokeWidth={2} /> {branch} Syllabus Progress
+        </h2>
         <div className="overall-progress-bar">
           <div className="progress-fill" style={{ width: `${overall.percentage}%` }}></div>
         </div>
         <div className="overall-stats">
           <span>Overall: {overall.percentage}% Complete</span>
           <span>{overall.completed}/{overall.total} Topics</span>
-          <span className="est-time">⏱️ Est. {overall.hoursLeft} hours left</span>
+          <span className="est-time" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Clock size={14} strokeWidth={2} /> Est. {overall.hoursLeft} hours left</span>
         </div>
       </div>
 
       {recommendation && (
         <div className="smart-recommendation">
-          <strong>📌 Smart Recommendation:</strong> Focus on <span>{recommendation.name}</span> - {recommendation.percentage === 0 ? 'Not started yet.' : `Only ${recommendation.percentage}% complete.`}
+          <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', verticalAlign: '-3px' }}><Pin size={16} strokeWidth={2} /> Smart Recommendation:</strong> Focus on <span>{recommendation.name}</span> - {recommendation.percentage === 0 ? 'Not started yet.' : `Only ${recommendation.percentage}% complete.`}
         </div>
       )}
 
@@ -195,8 +226,8 @@ function SyllabusChecklist({ branch, userKey }) {
               return (
                 <div key={idx} className={`breakdown-card priority-${subject.priority}`}>
                   <div className="breakdown-header">
-                    <span className="breakdown-name">
-                      {subject.priority === 'foundation' || subject.priority === 'high' ? '⭐ ' : ''}
+                    <span className="breakdown-name" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      {(subject.priority === 'foundation' || subject.priority === 'high') && <Star size={14} strokeWidth={2} style={{ flexShrink: 0 }} />}
                       {subject.name}
                     </span>
                     <span className="breakdown-pct">{stats.percentage}%</span>
@@ -217,11 +248,11 @@ function SyllabusChecklist({ branch, userKey }) {
               className="section-header" 
               onClick={() => setExpandedSection(expandedSection === section.name ? null : section.name)}
             >
-              <h3>
-                {section.priority === 'high' ? '⭐ ' : ''}
+              <h3 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                {section.priority === 'high' && <Star size={15} strokeWidth={2} style={{ flexShrink: 0 }} />}
                 {section.name}
               </h3>
-              <span className="expand-icon">{expandedSection === section.name ? '▼' : '▶'}</span>
+              <span className="expand-icon" style={{ display: 'inline-flex' }}>{expandedSection === section.name ? <ChevronDown size={16} strokeWidth={2} /> : <ChevronRight size={16} strokeWidth={2} />}</span>
             </div>
             
             {expandedSection === section.name && (

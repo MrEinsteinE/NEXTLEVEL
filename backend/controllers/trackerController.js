@@ -16,7 +16,8 @@ export const getTrackerLogs = async (req, res) => {
     const logs = await DailyTrackerLog.find(query).sort({ date: -1 });
     res.json(logs);
   } catch (err) {
-    res.status(500).json({ error: true, message: err.message });
+    console.error('Tracker error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
   }
 };
 
@@ -52,7 +53,8 @@ export const upsertTrackerLog = async (req, res) => {
 
     res.json({ success: true, log });
   } catch (err) {
-    res.status(500).json({ error: true, message: err.message });
+    console.error('Tracker error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
   }
 };
 
@@ -62,7 +64,8 @@ export const getSubjectProgress = async (req, res) => {
     const progress = await SubjectProgress.find({ userId: req.user._id });
     res.json(progress);
   } catch (err) {
-    res.status(500).json({ error: true, message: err.message });
+    console.error('Tracker error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
   }
 };
 
@@ -78,7 +81,8 @@ export const updateSubjectProgress = async (req, res) => {
     );
     res.json(progress);
   } catch (err) {
-    res.status(500).json({ error: true, message: err.message });
+    console.error('Tracker error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
   }
 };
 
@@ -87,13 +91,25 @@ export const getReports = async (req, res) => {
   try {
     // This can be expanded for more analytics
     const { weekStart, weekEnd } = req.query;
-    const logs = await DailyTrackerLog.find({
-      userId: req.user._id,
-      date: { $gte: new Date(weekStart), $lte: new Date(weekEnd) }
-    });
+    const filter = { userId: req.user._id };
+    if (weekStart || weekEnd) {
+      filter.date = {};
+      if (weekStart) {
+        const s = new Date(weekStart);
+        if (isNaN(s.getTime())) return res.status(400).json({ error: true, message: 'Invalid weekStart date.' });
+        filter.date.$gte = s;
+      }
+      if (weekEnd) {
+        const e = new Date(weekEnd);
+        if (isNaN(e.getTime())) return res.status(400).json({ error: true, message: 'Invalid weekEnd date.' });
+        filter.date.$lte = e;
+      }
+    }
+    const logs = await DailyTrackerLog.find(filter);
     // Compute weekly stats here if needed
     res.json({ logs });
   } catch (err) {
-    res.status(500).json({ error: true, message: err.message });
+    console.error('Tracker error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
   }
 };

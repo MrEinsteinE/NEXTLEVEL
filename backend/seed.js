@@ -14,7 +14,7 @@ import User from './models/User.js';
 
 dotenv.config();
 
-const mongooseOptions = { serverSelectionTimeoutMS: 10000, socketTimeoutMS: 5000, family: 4 };
+const mongooseOptions = { serverSelectionTimeoutMS: 10000, socketTimeoutMS: 45000, family: 4 };
 
 async function createConnection() {
   const tryConnect = async (uri) => {
@@ -86,9 +86,12 @@ async function seed() {
     // Create Test Student
     const studentEmail = 'nagarjunaneeraja4@gmail.com';
     const existingStudent = await User.findOne({ email: studentEmail });
-    if (!existingStudent) {
+    if (process.env.NODE_ENV === 'production') {
+      console.log('ℹ️  Skipping test-student seed in production');
+    } else if (!existingStudent) {
+      const seedPw = process.env.SEED_STUDENT_PASSWORD || 'password123';
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash('password123', salt);
+      const hashedPassword = await bcrypt.hash(seedPw, salt);
       await User.create({
         name: 'Nagarjuna User',
         email: studentEmail,
@@ -98,7 +101,7 @@ async function seed() {
         status: 'approved',
         targets: { daily: 8, weekly: 50, monthly: 200 }
       });
-      console.log('✅ Test student created: nagarjunaneeraja4@gmail.com / password123');
+      console.log('✅ Test student created: nagarjunaneeraja4@gmail.com (password set)');
     } else {
       console.log('ℹ️  Test student already exists');
     }

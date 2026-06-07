@@ -30,6 +30,7 @@ export const updateParticipant = async (req, res) => {
   try {
     const userId = req.user._id;
     const { challengeId, progress } = req.body;
+    if (!/^[a-f\d]{24}$/i.test(String(challengeId || ''))) return res.status(400).json({ error: true, message: 'Invalid challenge id' });
     const wc = await WeeklyChallenge.findById(challengeId);
     if (!wc) return res.status(404).json({ error: true, message: 'Challenge not found' });
     let part = wc.participants.find(p => p.userId.toString() === userId.toString());

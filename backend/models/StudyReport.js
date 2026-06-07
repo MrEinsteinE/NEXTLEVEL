@@ -25,15 +25,17 @@ const studyReportSchema = new mongoose.Schema({
     type: Number,
     min: [0, 'Mock test score cannot be negative'],
     max: [100, 'Mock test score cannot exceed 100'],
-    default: 0
+    default: null // null = not recorded (vs a genuine score of 0)
   },
   accuracy: {
     type: Number,
     min: [0, 'Accuracy cannot be negative'],
     max: [100, 'Accuracy cannot exceed 100'],
-    default: 0
+    default: null
   },
   difficulties: { type: String, trim: true, default: '' },
+  mood: { type: String, trim: true, default: '' },
+  tomorrowPlan: { type: String, trim: true, default: '' },
   createdAt: { type: Date, default: Date.now }
 });
 

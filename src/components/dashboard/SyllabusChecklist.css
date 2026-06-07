@@ -51,7 +51,6 @@
 
 .smart-recommendation {
   background: #fdf2f8; /* Pinkish light bg */
-  border-left: 4px solid #db2777; /* Pink accent */
   padding: var(--sp-4);
   border-radius: var(--radius-lg);
   font-size: var(--fs-sm);
@@ -91,13 +90,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  border-left: 4px solid transparent;
 }
 
-.breakdown-card.priority-foundation { border-left-color: var(--color-success); }
-.breakdown-card.priority-high { border-left-color: var(--color-danger); }
-.breakdown-card.priority-medium { border-left-color: var(--color-primary); }
-.breakdown-card.priority-supporting { border-left-color: var(--color-text-muted); }
+/* Colored priority strips removed for a cleaner look — priority is still
+   conveyed by the "Sorted by Priority" ordering and the star icons. */
 
 .breakdown-header {
   display: flex;
@@ -144,10 +140,7 @@
   background: white;
 }
 
-.syllabus-section.priority-high { border-left: 4px solid var(--color-danger); }
-.syllabus-section.priority-medium { border-left: 4px solid var(--color-primary); }
-.syllabus-section.priority-foundation { border-left: 4px solid var(--color-success); }
-.syllabus-section.priority-supporting { border-left: 4px solid var(--color-text-muted); }
+/* Section priority strips removed for a cleaner look. */
 
 .section-header {
   padding: var(--sp-4) var(--sp-5);

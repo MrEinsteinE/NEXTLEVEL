@@ -20,17 +20,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
   margin-bottom: var(--sp-4);
+  flex-wrap: wrap;
 }
 
-.time-block { display: flex; flex-direction: column; align-items: center; }
+.time-block { display: flex; flex-direction: column; align-items: center; min-width: 52px; }
 
 .time-num {
-  font-size: 3rem;
+  font-size: 2.5rem;
   font-weight: 900;
   line-height: 1;
   letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 .time-unit {
@@ -82,6 +84,7 @@
 }
 
 @media (max-width: 480px) {
-  .time-num { font-size: 2.2rem; }
+  .time-num { font-size: 1.9rem; }
+  .time-block { min-width: 42px; }
   .countdown-motto { font-size: 0.65rem; }
 }

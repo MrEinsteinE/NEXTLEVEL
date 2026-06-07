@@ -2,6 +2,8 @@ import User from '../models/User.js';
 import StudyReport from '../models/StudyReport.js';
 import Notification from '../models/Notification.js';
 import { refreshLeaderboard } from '../controllers/leaderboardController.js';
+import { sendNudgeEmail } from './emailService.js';
+import { sendPushToUser } from './pushService.js';
 
 /**
  * Recalculate consistency scores for all approved students.
@@ -111,6 +113,59 @@ export async function checkAndResetStreaks(io) {
 }
 
 /**
+ * Nudge students who have gone quiet (inactive ~1.5–14 days) so the mentor doesn't
+ * have to chase them. Escalates to a warmer "we miss you" + 2× comeback offer once
+ * they've been gone 4+ days. Sends in-app + (unless NUDGE_EMAILS=false) email + push.
+ */
+export async function nudgeInactiveStudents(io) {
+  try {
+    const now = new Date();
+    const students = await User.find({ role: 'student', status: 'approved' })
+      .select('name email streak lastActiveDate');
+    const emailsOn = process.env.NUDGE_EMAILS !== 'false'; // emails default ON; set NUDGE_EMAILS=false to disable
+    let nudged = 0;
+
+    for (const s of students) {
+      if (!s.lastActiveDate) continue;
+      const hoursSince = (now - new Date(s.lastActiveDate)) / 3600000;
+      if (hoursSince < 36 || hoursSince > 14 * 24) continue; // 1.5–14 day window
+
+      // Don't nudge twice in a day.
+      const recent = await Notification.findOne({
+        userId: s._id, type: 'nudge',
+        createdAt: { $gte: new Date(now.getTime() - 20 * 3600000) }
+      });
+      if (recent) continue;
+
+      const fname = (s.name || 'there').split(' ')[0];
+      const daysAway = Math.floor(hoursSince / 24);
+      // Escalating win-back: gentle for a short break, warmer "we miss you" (with the
+      // 2× comeback bonus) once they've been gone 4+ days.
+      const message = daysAway >= 4
+        ? `We miss you, ${fname}! It's been ${daysAway} days — come back today and your first report earns 2× comeback points. Let's restart strong. 💪`
+        : s.streak > 0
+          ? `Hey ${fname}, you've been away a little while — log a quick session today to keep your ${s.streak}-day streak alive! 🔥`
+          : `Hey ${fname}, ready to get back to it? Even one focused hour today rebuilds your momentum. You've got this! 💪`;
+
+      await Notification.create({ userId: s._id, type: 'nudge', title: 'Time to study?', message });
+      if (io) io.to(`student_${s._id}`).emit('notification', { type: 'nudge', title: 'Time to study?', message });
+      // Also email the student (best-effort — never let a mail failure break the loop).
+      if (emailsOn && s.email) {
+        try { await sendNudgeEmail(s.email, s.name, message); } catch (e) { console.error('Nudge email failed for', s.email, e.message); }
+      }
+      await sendPushToUser(s._id, { title: 'Time to study?', body: message, url: '/dashboard' }).catch(() => {});
+      nudged++;
+    }
+
+    console.log(`✅ Auto-nudge complete: ${nudged} student(s) nudged`);
+    return nudged;
+  } catch (err) {
+    console.error('Auto-nudge error:', err);
+    return 0;
+  }
+}
+
+/**
  * Initialize cron jobs.
  * Uses dynamic import for node-cron (optional dependency).
  */
@@ -131,7 +186,13 @@ export async function initCronJobs(io) {
       await refreshLeaderboard();
     }, { timezone: 'Asia/Kolkata' });
 
-    console.log('✅ Cron jobs initialized (midnight consistency/streaks, hourly leaderboard)');
+    // 5 PM IST daily: nudge students who've gone quiet
+    cron.default.schedule('0 17 * * *', async () => {
+      console.log('⏰ Running daily cron: nudge inactive students');
+      await nudgeInactiveStudents(io);
+    }, { timezone: 'Asia/Kolkata' });
+
+    console.log('✅ Cron jobs initialized (midnight consistency/streaks, hourly leaderboard, 5pm nudges)');
   } catch (err) {
     console.warn('⚠️  node-cron not available. Cron jobs disabled. Install with: npm install node-cron');
   }

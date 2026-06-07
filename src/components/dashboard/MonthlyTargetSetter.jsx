@@ -1,3 +1,5 @@
+import { Target } from 'lucide-react'
+
 function MonthlyTargetSetter() {
   const targets = [
     { label: 'Complete Linear Algebra', progress: 80, status: 'On Track' },
@@ -8,8 +10,8 @@ function MonthlyTargetSetter() {
 
   return (
     <div>
-      <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-4)' }}>
-        🎯 March Targets
+      <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--space-4)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+        <Target size={18} strokeWidth={2} /> March Targets
       </h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {targets.map((t, i) => (

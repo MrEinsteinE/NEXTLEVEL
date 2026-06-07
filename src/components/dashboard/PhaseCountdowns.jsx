@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Trophy } from 'lucide-react';
 
 const targets = [
   { id: 'syllabus', title: 'Syllabus Completion', date: '2026-11-30T23:59:59Z', type: 'ring' },
@@ -39,7 +40,7 @@ export default function PhaseCountdowns() {
               ) : t.type === 'glow' ? (
                 <div style={{ width: 64, height: 64, borderRadius: 12, background: 'linear-gradient(90deg,#60a5fa,#4f46e5)', boxShadow: '0 8px 28px rgba(99,102,241,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800 }}>R</div>
               ) : (
-                <div style={{ width: 64, height: 64, borderRadius: 12, background: 'linear-gradient(90deg,#f59e0b,#f97316)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800 }}>🏆</div>
+                <div style={{ width: 64, height: 64, borderRadius: 12, background: 'linear-gradient(90deg,#f59e0b,#f97316)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800 }}><Trophy size={28} strokeWidth={2} /></div>
               )}
             </div>
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../utils/api';
+import { WidgetSkeleton } from '../common/Loaders.jsx';
 import { Bar } from 'react-chartjs-2';
 
 export default function ReportsTab() {
@@ -21,7 +22,7 @@ export default function ReportsTab() {
     });
   }, []);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <WidgetSkeleton />;
 
   // Example chart data (replace with real data mapping)
   const chartData = {

@@ -3,10 +3,18 @@ import toast from 'react-hot-toast';
 
 export let socket = null;
 
-// Prefer configured socket URL, otherwise point to the canonical Render backend hostname.
-const SOCKET_URL = (import.meta.env.VITE_SOCKET_URL && String(import.meta.env.VITE_SOCKET_URL).trim())
-  ? String(import.meta.env.VITE_SOCKET_URL).replace(/\/$/, '')
-  : 'https://nextlevel-backend.onrender.com';
+// Prefer an explicitly configured socket URL. In local dev, talk to the local
+// backend so realtime updates (streak, points, progress) work without a reload.
+// Otherwise fall back to the canonical Render backend hostname.
+function resolveSocketUrl() {
+  const configured = import.meta.env.VITE_SOCKET_URL && String(import.meta.env.VITE_SOCKET_URL).trim();
+  if (configured) return configured.replace(/\/$/, '');
+  if (typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)) {
+    return 'http://localhost:5000';
+  }
+  return 'https://nextlevel-backend.onrender.com';
+}
+const SOCKET_URL = resolveSocketUrl();
 
 function createSocket() {
   return io(SOCKET_URL, {
@@ -16,7 +24,7 @@ function createSocket() {
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 2000,
-    auth: { token: localStorage.getItem('token') }
+    withCredentials: true // auth via the httpOnly cookie sent on the handshake
   });
 }
 
@@ -27,8 +35,8 @@ export function connectSocket(user) {
     socket.off();
     socket.connect();
 
-    socket.on('connect', () => console.log('Socket connected', socket.id));
-    socket.on('disconnect', (reason) => console.log('Socket disconnected', reason));
+    socket.on('connect', () => { if (import.meta.env.DEV) console.log('Socket connected', socket.id); });
+    socket.on('disconnect', (reason) => { if (import.meta.env.DEV) console.log('Socket disconnected', reason); });
 
     socket.on('connect_error', (err) => {
       console.warn('Socket connect_error', err && err.message);
@@ -50,8 +58,8 @@ export function connectSocket(user) {
     socket.on('points-updated', (p) => { try { if (p && typeof p.points !== 'undefined') toast.success(`+${p.points} points`); } catch (e) {} });
     socket.on('tokens-updated', (p) => { try { if (p && typeof p.tokens !== 'undefined') toast.success(`Streak tokens: ${p.tokens}`); } catch (e) {} });
     socket.on('streak-token-used', () => { try { toast.success('Streak Freeze used!'); } catch (e) {} });
-    socket.on('badge-earned', (payload) => { try { if (payload && payload.name) toast.success(`${payload.name} unlocked! 🎉`); } catch (e) {} });
-    socket.on('challenge-correct', () => { try { toast.success('+2 challenge points! 🎯'); } catch (e) {} });
+    socket.on('badge-earned', (payload) => { try { if (payload && payload.name) toast.success(`${payload.name} unlocked!`); } catch (e) {} });
+    socket.on('challenge-correct', () => { try { toast.success('+2 challenge points!'); } catch (e) {} });
 
     return socket;
   } catch (e) {

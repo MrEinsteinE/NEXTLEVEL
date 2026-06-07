@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import axios from 'axios'
+import { useAuth } from '../context/AuthContext'
 import './Auth.css'
 
 function MentorLogin() {
@@ -9,35 +9,22 @@ function MentorLogin() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
-
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user'))
-    if (user && user.role === 'mentor') {
-      navigate('/mentor-dashboard')
-    }
-  }, [navigate])
+  const { mentorLogin } = useAuth()
+  // Already-logged-in redirect is handled by <PublicRoute> in App.jsx.
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
-    try {
-      const response = await axios.post('/api/auth/mentor-login', {
-        email: email.trim().toLowerCase(),
-        password
-      })
+    const res = await mentorLogin(email.trim().toLowerCase(), password)
+    setLoading(false)
 
-      const { token, user } = response.data
-
-      localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify(user))
-      navigate('/mentor-dashboard')
-    } catch (err) {
-      setError(err.response?.data?.message || 'Invalid mentor credentials. Please check your email/password.')
-    } finally {
-      setLoading(false)
+    if (!res.success) {
+      setError(res.error || 'Invalid mentor credentials. Please check your email/password.')
+      return
     }
+    navigate('/mentor-dashboard')
   }
 
   return (
@@ -57,7 +44,7 @@ function MentorLogin() {
               <label>Mentor Email</label>
               <input
                 type="email"
-                placeholder="sankar.bhima@gmail.com"
+                placeholder="Enter your mentor email"
                 value={email}
                 required
                 onChange={(e) => { setEmail(e.target.value); setError('') }}

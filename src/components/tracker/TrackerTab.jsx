@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../utils/api';
+import { WidgetSkeleton } from '../common/Loaders.jsx';
 import TrackerRowEditor from './TrackerRowEditor';
 import ActivityBadge from './ActivityBadge';
 import EfficiencyBadge from './EfficiencyBadge';
@@ -20,7 +21,7 @@ export default function TrackerTab() {
     fetchLogs();
   }, []);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <WidgetSkeleton />;
 
   return (
     <div className="tracker-tab">

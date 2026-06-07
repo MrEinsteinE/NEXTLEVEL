@@ -214,7 +214,7 @@
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04);
 }
 
-.pending-row { border-left: 4px solid #3b82f6; background: #f0f9ff44; }
+/* (pending-row left-stripe removed — status is conveyed by the "Pending" tag) */
 
 .m-stud-info {
   display: flex;
@@ -297,4 +297,128 @@
   .logout-btn-premium { width: 100%; }
   .m-search { width: 100%; }
   .m-section-container { padding: 1.5rem; }
+}
+
+/* Header actions cluster (theme toggle + logout) */
+.header-actions { display: flex; align-items: center; gap: var(--sp-3); }
+
+/* ============================================================
+   Mentor content area — styles for the classes the JSX renders
+   (the older .m-* / .mentor-main-content rules didn't match).
+   ============================================================ */
+.mentor-main { max-width: 1240px; margin: 0 auto; padding: 2rem; }
+
+.mentor-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.mentor-stat-card {
+  background: #fff;
+  border: 1px solid #e8ebf3;
+  border-radius: 16px;
+  padding: 1.25rem 1rem;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  box-shadow: 0 1px 3px rgba(16,24,40,.06);
+}
+.mentor-stat-card .m-stat-num { font-family: var(--font-display); font-size: 2rem; font-weight: 800; color: var(--color-primary); line-height: 1; }
+.mentor-stat-card .m-stat-label { font-size: .72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .05em; }
+
+.mentor-section {
+  background: #fff;
+  border: 1px solid #e8ebf3;
+  border-radius: 18px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(16,24,40,.06);
+  margin-bottom: 1.5rem;
+}
+.section-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: .5rem; }
+.section-header h2 { font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; color: #1e293b; margin: 0; }
+
+.filter-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.search-input {
+  padding: .55rem .9rem; border: 1px solid #e2e8f0; border-radius: 10px;
+  font-size: .9rem; min-width: 200px; background: #f8fafc; color: #1e293b;
+  transition: border-color .15s, box-shadow .15s;
+}
+.search-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 4px var(--color-primary-light); background: #fff; }
+.filter-btn {
+  padding: .5rem .9rem; border: 1px solid #e2e8f0; border-radius: 10px;
+  background: #fff; color: #475569; font-weight: 600; font-size: .82rem; cursor: pointer;
+  transition: all .15s;
+}
+.filter-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.filter-btn.active { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+
+.click-hint { font-size: .82rem; color: #94a3b8; margin: .25rem 0 1rem; }
+.empty-text { color: #94a3b8; text-align: center; padding: 1.5rem; }
+
+.students-list { display: flex; flex-direction: column; gap: .6rem; }
+.student-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: .9rem 1.1rem; border: 1px solid #eef1f6; border-radius: 12px;
+  background: #fcfdff; transition: all .15s;
+}
+.student-row.clickable { cursor: pointer; }
+.student-row.clickable:hover { border-color: var(--color-primary); box-shadow: 0 4px 14px rgba(108,99,255,.12); transform: translateY(-1px); }
+/* pending rows are indicated by their status tag, not a coloured stripe */
+.student-info { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.student-info strong { font-weight: 700; color: #1e293b; }
+.student-info > span { color: #64748b; font-size: .88rem; }
+.branch-tag { background: var(--color-primary-light); color: var(--color-primary); font-weight: 700; font-size: .72rem; padding: .2rem .6rem; border-radius: 999px; }
+.status-tag { font-weight: 700; font-size: .72rem; padding: .2rem .6rem; border-radius: 999px; text-transform: capitalize; }
+.status-tag.approved { background: #dcfce7; color: #16a34a; }
+.status-tag.pending { background: #fef3c7; color: #d97706; }
+.status-tag.rejected { background: #fee2e2; color: #dc2626; }
+.student-actions { display: flex; gap: .5rem; flex-shrink: 0; }
+.approve-btn, .reject-btn {
+  height: 36px; min-width: 36px; padding: 0 .85rem;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  white-space: nowrap; border-radius: 9px; border: none; cursor: pointer;
+  font-weight: 800; font-size: .82rem; line-height: 1; transition: transform .1s, filter .1s;
+}
+.approve-btn { background: #dcfce7; color: #16a34a; }
+.reject-btn { background: #fee2e2; color: #dc2626; }
+.approve-btn:hover, .reject-btn:hover { transform: scale(1.05); filter: brightness(.97); }
+.row-chevron { color: #cbd5e1; font-size: 1.5rem; font-weight: 700; flex-shrink: 0; line-height: 1; transition: color .15s, transform .15s; }
+.student-row.clickable:hover .row-chevron { color: var(--color-primary); transform: translateX(2px); }
+
+/* ── Icon-aligned headings (Lucide icons sit inline with the text) ── */
+.section-h2-icon { display: inline-flex; align-items: center; gap: .5rem; }
+.modal-h3-icon { display: inline-flex; align-items: center; gap: .45rem; }
+
+/* ── Search input with leading Lucide icon (keeps .search-input styling) ── */
+.search-input-wrap { display: inline-flex; align-items: center; gap: .5rem; padding-top: 0; padding-bottom: 0; height: 38px; }
+.search-input-wrap .search-icon { color: #94a3b8; flex-shrink: 0; }
+.search-input-wrap input { border: none; background: transparent; outline: none; font-size: .9rem; color: #1e293b; min-width: 150px; width: 100%; }
+.search-input-wrap:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 4px var(--color-primary-light); background: #fff; }
+
+/* ── Status segment chips (All / Active / Pending / New) ── */
+.status-segment {
+  display: inline-flex; gap: .3rem; padding: .3rem;
+  background: #f1f5f9; border-radius: 12px; margin: .25rem 0 .75rem;
+  flex-wrap: wrap;
+}
+.segment-chip {
+  padding: .4rem .9rem; border: none; background: transparent; border-radius: 9px;
+  font-size: .8rem; font-weight: 700; color: #64748b; cursor: pointer;
+  transition: all .15s;
+}
+.segment-chip:hover { color: var(--color-primary); }
+.segment-chip.active { background: #fff; color: var(--color-primary); box-shadow: 0 1px 3px rgba(16,24,40,.12); }
+
+/* ── At-risk indicators ── */
+.at-risk-badge {
+  display: inline-flex; align-items: center; gap: .25rem;
+  background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;
+  font-weight: 700; font-size: .68rem; padding: .18rem .5rem; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: .02em;
+}
+.at-risk-count-chip {
+  display: inline-flex; align-items: center; gap: .3rem;
+  background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa;
+  font-family: var(--font-body, inherit);
+  font-weight: 700; font-size: .72rem; padding: .25rem .7rem; border-radius: 999px;
+  margin-left: .25rem; text-transform: none; letter-spacing: 0;
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { MessageCircle, RefreshCw } from 'lucide-react'
 import { motivationQuotes } from '../../data/platformData.js'
 import './MotivationQuotes.css'
 
@@ -26,8 +27,12 @@ function MotivationQuotes() {
   return (
     <div className="motivation-widget">
       <div className="motivation-header">
-        <h3>💬 Message from Bhima Sankar Sir</h3>
-        <button className="refresh-btn" onClick={getRandomQuote}>🔄</button>
+        <h3 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          <MessageCircle size={18} strokeWidth={2} /> Message from Bhima Sankar Sir
+        </h3>
+        <button className="refresh-btn" onClick={getRandomQuote} aria-label="New quote">
+          <RefreshCw size={16} strokeWidth={2} />
+        </button>
       </div>
       <div className="motivation-body">
         <p className="motivation-text">{renderText(quote.text)}</p>

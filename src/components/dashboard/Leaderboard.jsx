@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import { Trophy, Medal, Flame } from 'lucide-react'
 import './Leaderboard.css'
+import { WidgetSkeleton } from '../common/Loaders.jsx'
 
 function Leaderboard({ fullView }) {
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
@@ -8,6 +10,7 @@ function Leaderboard({ fullView }) {
 
   const [leaderboard, setLeaderboard] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showAll, setShowAll] = useState(false)
 
   useEffect(() => {
     fetchLeaderboard()
@@ -15,10 +18,7 @@ function Leaderboard({ fullView }) {
 
   const fetchLeaderboard = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const res = await axios.get('/api/leaderboard', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const res = await axios.get('/api/leaderboard')
       setLeaderboard(res.data.leaderboard || [])
     } catch (err) {
       console.error('Failed to fetch leaderboard:', err)
@@ -33,16 +33,21 @@ function Leaderboard({ fullView }) {
   // Re-assign ranks dynamically based on the current filter
   const ranked = filtered.map((s, i) => ({ ...s, rank: i + 1 }))
 
-  const displayList = fullView ? ranked : ranked.slice(0, 5)
+  const displayList = (fullView || showAll) ? ranked : ranked.slice(0, 5)
 
-  if (loading) return <div className="leaderboard-widget"><p style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>Loading Leaderboard...</p></div>
+  if (loading) return <div className="leaderboard-widget"><WidgetSkeleton /></div>
 
-  const podiumIcons = ['🥇', '🥈', '🥉']
+  const renderPodiumIcon = (rank) => {
+    if (rank === 1) return <Trophy size={18} strokeWidth={2} />
+    return <Medal size={18} strokeWidth={2} />
+  }
 
   return (
     <div className={`leaderboard-widget ${fullView ? 'full' : ''}`}>
       <div className="lb-header">
-        <h3>🥇 Top Aspirants</h3>
+        <h3 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          <Trophy size={18} strokeWidth={2} /> Top Aspirants
+        </h3>
         <div className="lb-tabs">
           {['all', 'ECE', 'EE', 'CSE'].map(t => (
             <button
@@ -64,11 +69,13 @@ function Leaderboard({ fullView }) {
 
       <div className="lb-list">
         {displayList.map(student => {
-          const isMe = student.email === currentUser.email
+          // Match by id (always present); email is only returned to mentors now.
+          const isMe = String(student.id) === String(currentUser._id || currentUser.id)
+            || (!!student.email && student.email === currentUser.email)
           return (
-            <div key={student.id} className={`lb-item ${isMe ? 'is-me' : ''} ${student.rank <= 3 ? `rank-${student.rank}` : ''}`}>
-              <div className="lb-rank">
-                {student.rank <= 3 ? podiumIcons[student.rank - 1] : `#${student.rank}`}
+            <div key={student.id || student.rank} className={`lb-item ${isMe ? 'is-me' : ''} ${student.rank <= 3 ? `rank-${student.rank}` : ''}`}>
+              <div className="lb-rank" style={student.rank <= 3 ? { display: 'flex', alignItems: 'center', justifyContent: 'center' } : undefined}>
+                {student.rank <= 3 ? renderPodiumIcon(student.rank) : `#${student.rank}`}
               </div>
               <div className="lb-info">
                 <div className="lb-name">
@@ -76,18 +83,25 @@ function Leaderboard({ fullView }) {
                 </div>
                 <div className="lb-details">
                   <span className="lb-branch">{student.branch}</span> •
-                  <span className="lb-points"> {student.points.toLocaleString()} PTS</span> •
-                  <span className="lb-hours"> {student.totalHours.toFixed(1)}h studied</span>
+                  <span className="lb-points"> {(student.points || 0).toLocaleString()} PTS</span> •
+                  <span className="lb-hours"> {(student.totalHours || 0).toFixed(1)}h studied</span>
                 </div>
               </div>
-              <div className="lb-streak">🔥 {student.streak}</div>
+              <div className="lb-streak" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Flame size={13} strokeWidth={2} /> {student.streak}</div>
             </div>
           )
         })}
       </div>
 
-      {!fullView && ranked.length > 5 && (
-        <button className="lb-view-all">View Full Leaderboard</button>
+      {!fullView && !showAll && ranked.length > 5 && (
+        <button className="lb-view-all" onClick={() => setShowAll(true)}>
+          View Full Leaderboard ({ranked.length})
+        </button>
+      )}
+      {!fullView && showAll && ranked.length > 5 && (
+        <button className="lb-view-all" onClick={() => setShowAll(false)}>
+          Show Top 5
+        </button>
       )}
     </div>
   )

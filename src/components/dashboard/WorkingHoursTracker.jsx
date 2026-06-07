@@ -1,25 +1,24 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { Clock, CalendarDays, CalendarRange, PartyPopper } from 'lucide-react'
 import './WorkingHoursTracker.css'
+import { WidgetSkeleton } from '../common/Loaders.jsx'
 
 function WorkingHoursTracker() {
   const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const token = localStorage.getItem('token')
   const targets = user.targets || { daily: 6, weekly: 42, monthly: 180 }
   
   const [data, setData] = useState({ today: 0, week: 0, month: 0, weekData: [] })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (user._id && token) fetchAndProcessReports()
+    if (user._id) fetchAndProcessReports()
   }, [])
 
   const fetchAndProcessReports = async () => {
     try {
-      const res = await axios.get(`/api/student/study-reports/${user._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const res = await axios.get(`/api/student/study-reports/${user._id}`)
       const reports = res.data.reports || []
       setData(getHoursFromReports(reports))
     } catch (err) {
@@ -53,11 +52,14 @@ function WorkingHoursTracker() {
 
     reports.forEach(r => {
       const rDate = new Date(r.date)
+      // r.date is a full ISO datetime (e.g. 2026-06-06T00:00:00.000Z); normalise
+      // to YYYY-MM-DD before comparing with date-only keys.
+      const rKey = rDate.toISOString().split('T')[0]
       const hours = Number(r.studyHours) || 0
-      if (r.date === todayStr) today += hours
+      if (rKey === todayStr) today += hours
       if (rDate >= weekStart) week += hours
       if (rDate >= monthStart) month += hours
-      if (weekMap[r.date]) weekMap[r.date].hours += hours
+      if (weekMap[rKey]) weekMap[rKey].hours += hours
     })
 
     const weekData = Object.values(weekMap)
@@ -69,12 +71,12 @@ function WorkingHoursTracker() {
   const weekPct = targets.weekly > 0 ? Math.min(100, Math.round((data.week / targets.weekly) * 100)) : 0
   const monthPct = targets.monthly > 0 ? Math.min(100, Math.round((data.month / targets.monthly) * 100)) : 0
 
-  if (loading) return <div className="hours-tracker"><p style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>Loading hours trend...</p></div>
+  if (loading) return <div className="hours-tracker"><WidgetSkeleton /></div>
 
   return (
     <div className="hours-tracker">
       <div className="hours-header">
-        <h3>⏱️ Working Hours</h3>
+        <h3><Clock size={18} strokeWidth={2} style={{ verticalAlign: '-3px' }} /> Working Hours</h3>
         <span className="hours-subtitle">From study reports</span>
       </div>
 
@@ -88,19 +90,21 @@ function WorkingHoursTracker() {
           <div className="progress-bar-fill" style={{ width: `${todayPct}%`, background: todayPct >= 100 ? 'var(--color-success, #10b981)' : 'var(--color-primary, #2563eb)' }}></div>
         </div>
         <p className="progress-msg">
-          {todayPct >= 100 ? "🎉 Target achieved! Great job." : `Keep going! ${Math.max(0, targets.daily - data.today).toFixed(1)}h remaining.`}
+          {todayPct >= 100 ? (
+            <><PartyPopper size={16} strokeWidth={2} style={{ verticalAlign: '-3px' }} /> Target achieved! Great job.</>
+          ) : `Keep going! ${Math.max(0, targets.daily - data.today).toFixed(1)}h remaining.`}
         </p>
       </div>
 
       {/* Week & Month summary */}
       <div className="hours-summary-row">
         <div className="hours-summary-item">
-          <span className="hs-label">📅 This Week</span>
+          <span className="hs-label"><CalendarDays size={16} strokeWidth={2} style={{ verticalAlign: '-3px' }} /> This Week</span>
           <span className="hs-value">{data.week.toFixed(1)}h / {targets.weekly}h</span>
           <div className="hs-bar"><div className="hs-bar-fill" style={{ width: `${weekPct}%` }} /></div>
         </div>
         <div className="hours-summary-item">
-          <span className="hs-label">📆 This Month</span>
+          <span className="hs-label"><CalendarRange size={16} strokeWidth={2} style={{ verticalAlign: '-3px' }} /> This Month</span>
           <span className="hs-value">{data.month.toFixed(1)}h / {targets.monthly}h</span>
           <div className="hs-bar"><div className="hs-bar-fill" style={{ width: `${monthPct}%` }} /></div>
         </div>

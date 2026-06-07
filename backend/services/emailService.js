@@ -1,5 +1,16 @@
 import nodemailer from 'nodemailer';
 
+// Escape user-controlled values before interpolating them into email HTML, to
+// prevent HTML/content injection (and broken rendering) in delivered emails.
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // Create reusable transporter
 let transporter = null;
 
@@ -20,6 +31,71 @@ function getTransporter() {
   });
 
   return transporter;
+}
+
+/**
+ * Send a password-reset email with a one-time reset link.
+ */
+export async function sendPasswordResetEmail(email, name, resetUrl) {
+  const t = getTransporter();
+  if (!t) {
+    console.log(`📧 [MOCK] Password reset link for ${email}: ${resetUrl}`);
+    return;
+  }
+  await t.sendMail({
+    from: `"NEXT_LEVEL Platform" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: 'Reset your NEXT_LEVEL password',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 20px; border-radius: 12px; color: white; text-align: center;">
+          <h1 style="margin: 0;">NEXT_LEVEL</h1>
+          <p style="margin: 5px 0 0;">Password Reset</p>
+        </div>
+        <div style="padding: 20px; background: #f8f9fa; border-radius: 0 0 12px 12px;">
+          <p>Hi ${name || 'there'},</p>
+          <p>We received a request to reset your password. Click the button below to choose a new one. This link expires in 30 minutes.</p>
+          <p style="text-align:center; margin: 24px 0;">
+            <a href="${resetUrl}" style="background:#6C63FF; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; display:inline-block; font-weight:bold;">Reset Password</a>
+          </p>
+          <p style="color:#64748b; font-size:13px;">If you didn't request this, you can safely ignore this email.</p>
+        </div>
+      </div>
+    `
+  });
+}
+
+/**
+ * Send a gentle study nudge to a student who's gone quiet. Best-effort: falls
+ * back to a console mock when email isn't configured.
+ */
+export async function sendNudgeEmail(email, name, message) {
+  const t = getTransporter();
+  if (!t) {
+    console.log(`📧 [MOCK] Nudge email to ${email}: ${message}`);
+    return;
+  }
+  const loginUrl = `${process.env.FRONTEND_URL || 'https://next-level-by-bhima-sankar-sir-mentoring.vercel.app'}/login`;
+  await t.sendMail({
+    from: `"NEXT_LEVEL Platform" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: 'A quick nudge from NEXT_LEVEL 👋',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #6C63FF, #FF6B35); padding: 20px; border-radius: 12px; color: white; text-align: center;">
+          <h1 style="margin: 0;">NEXT_LEVEL</h1>
+          <p style="margin: 5px 0 0;">Keep your momentum going</p>
+        </div>
+        <div style="padding: 20px; background: #f8f9fa; border-radius: 0 0 12px 12px;">
+          <p>${escapeHtml(message)}</p>
+          <p style="text-align:center; margin: 24px 0;">
+            <a href="${loginUrl}" style="background:#6C63FF; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; display:inline-block; font-weight:bold;">Log a session</a>
+          </p>
+          <p style="color:#64748b; font-size:13px;">You're getting this because you're enrolled in mentorship with Bhima Sankar Sir. It only sends when you've been away a couple of days.</p>
+        </div>
+      </div>
+    `
+  });
 }
 
 /**
@@ -47,9 +123,9 @@ export async function sendMentorNotification({ name, email, branch }) {
         <div style="padding: 20px; background: #f8f9fa; border-radius: 0 0 12px 12px;">
           <h3>A new student has requested mentorship:</h3>
           <table style="width: 100%; border-collapse: collapse;">
-            <tr><td style="padding: 8px; font-weight: bold;">Name:</td><td style="padding: 8px;">${name}</td></tr>
-            <tr><td style="padding: 8px; font-weight: bold;">Email:</td><td style="padding: 8px;">${email}</td></tr>
-            <tr><td style="padding: 8px; font-weight: bold;">Branch:</td><td style="padding: 8px;">${branch}</td></tr>
+            <tr><td style="padding: 8px; font-weight: bold;">Name:</td><td style="padding: 8px;">${escapeHtml(name)}</td></tr>
+            <tr><td style="padding: 8px; font-weight: bold;">Email:</td><td style="padding: 8px;">${escapeHtml(email)}</td></tr>
+            <tr><td style="padding: 8px; font-weight: bold;">Branch:</td><td style="padding: 8px;">${escapeHtml(branch)}</td></tr>
             <tr><td style="padding: 8px; font-weight: bold;">Date:</td><td style="padding: 8px;">${new Date().toLocaleDateString()}</td></tr>
           </table>
           <p style="margin-top: 20px;">Log in to your <a href="${process.env.FRONTEND_URL || 'https://next-level-by-bhima-sankar-sir-mentoring.vercel.app'}/mentor-login">Mentor Dashboard</a> to approve or reject this request.</p>
@@ -60,6 +136,43 @@ export async function sendMentorNotification({ name, email, branch }) {
 
   await t.sendMail(mailOptions);
   console.log(`📧 Mentor notification sent for student: ${name}`);
+}
+
+/**
+ * Send a 6-digit email-verification code to a newly registered student.
+ * Falls back to a console log (with the code) when email isn't configured.
+ */
+export async function sendVerificationEmail({ name, email, code }) {
+  const t = getTransporter();
+  if (!t) {
+    console.log(`📧 [MOCK] Verification code for ${name} (${email}): ${code}`);
+    return;
+  }
+
+  const mailOptions = {
+    from: `"NEXT_LEVEL Platform" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: '🔐 Verify your email – NEXT_LEVEL',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #6C63FF, #A855F7); padding: 20px; border-radius: 12px; color: white; text-align: center;">
+          <h1 style="margin: 0;">🚀 NEXT_LEVEL</h1>
+          <p style="margin: 5px 0 0;">Verify your email address</p>
+        </div>
+        <div style="padding: 20px; background: #f8f9fa; border-radius: 0 0 12px 12px;">
+          <h3>Hi ${escapeHtml(name)},</h3>
+          <p>Use this code to verify your email and finish creating your account:</p>
+          <div style="font-size: 32px; font-weight: 800; letter-spacing: 8px; text-align: center; background: #EAE9FF; color: #1E1B4B; padding: 16px; border-radius: 8px; margin: 16px 0;">
+            ${code}
+          </div>
+          <p style="color: #6b7280; font-size: 14px;">This code expires in 15 minutes. If you didn't request this, you can ignore this email.</p>
+        </div>
+      </div>
+    `
+  };
+
+  await t.sendMail(mailOptions);
+  console.log(`📧 Verification email sent to: ${name} (${email})`);
 }
 
 /**
@@ -79,7 +192,7 @@ export async function sendApprovalEmail({ name, email }) {
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #0f9b0f, #0d7d0d); padding: 20px; border-radius: 12px; color: white; text-align: center;">
-          <h1 style="margin: 0;">🎉 Congratulations, ${name}!</h1>
+          <h1 style="margin: 0;">🎉 Congratulations, ${escapeHtml(name)}!</h1>
           <p style="margin: 5px 0 0;">You've been approved for NEXT_LEVEL Mentorship</p>
         </div>
         <div style="padding: 20px; background: #f8f9fa; border-radius: 0 0 12px 12px;">
@@ -128,15 +241,15 @@ export async function sendQueryAnswerEmail(email, name, question, answer) {
           <p style="margin: 5px 0 0;">Bhima Sankar Sir has answered your query</p>
         </div>
         <div style="padding: 20px; background: #f8f9fa; border-radius: 0 0 12px 12px;">
-          <h3>Hi ${name},</h3>
+          <h3>Hi ${escapeHtml(name)},</h3>
           <p>Your question has been answered by your mentor:</p>
           <div style="background: #e9ecef; padding: 12px; border-radius: 8px; margin: 12px 0;">
             <strong>Your Question:</strong>
-            <p style="margin: 6px 0 0;">${question}</p>
+            <p style="margin: 6px 0 0;">${escapeHtml(question)}</p>
           </div>
           <div style="background: #d4edda; padding: 12px; border-radius: 8px; margin: 12px 0;">
             <strong>Mentor's Answer:</strong>
-            <p style="margin: 6px 0 0;">${answer}</p>
+            <p style="margin: 6px 0 0;">${escapeHtml(answer)}</p>
           </div>
           <p style="margin-top: 20px;">
             <a href="${process.env.FRONTEND_URL || 'https://nextlevel-snowy.vercel.app'}/feedback"

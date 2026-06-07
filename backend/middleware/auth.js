@@ -4,16 +4,28 @@ import User from '../models/User.js';
 /**
  * Core JWT authentication middleware. Use as `protect` in routes.
  */
+// Read the JWT from the httpOnly cookie first, then fall back to the
+// Authorization: Bearer header (legacy clients / API tools). Manual cookie parse
+// avoids needing the cookie-parser dependency.
+const getToken = (req) => {
+  const raw = req.headers.cookie;
+  if (raw) {
+    const m = raw.match(/(?:^|;\s*)authToken=([^;]+)/);
+    if (m) return decodeURIComponent(m[1]);
+  }
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const t = authHeader.split(' ')[1];
+    if (t && t !== 'null' && t !== 'undefined') return t;
+  }
+  return null;
+};
+
 export const requireAuth = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: true, message: 'Access denied. No token provided.' });
-    }
-
-    const token = authHeader.split(' ')[1];
+    const token = getToken(req);
     if (!token) {
-      return res.status(401).json({ error: true, message: 'Access denied. Token missing.' });
+      return res.status(401).json({ error: true, message: 'Access denied. No token provided.' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);

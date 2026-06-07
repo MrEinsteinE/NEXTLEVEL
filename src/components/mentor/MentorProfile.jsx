@@ -1,9 +1,12 @@
+import { GraduationCap, MessageCircle } from 'lucide-react'
 import './MentorProfile.css'
 
 function MentorProfile() {
   return (
     <div className="mentor-card">
-      <h3>👨‍🏫 Your Mentor</h3>
+      <h3 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+        <GraduationCap size={20} strokeWidth={2} /> Your Mentor
+      </h3>
 
       <div className="mentor-photo-wrapper">
         <div className="mentor-photo-ring" />
@@ -38,8 +41,8 @@ function MentorProfile() {
         Taking you to the <strong>Next Level</strong>!
       </p>
 
-      <button className="mentor-contact-btn">
-        💬 Connect with Mentor
+      <button className="mentor-contact-btn" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+        <MessageCircle size={18} strokeWidth={2} /> Connect with Mentor
       </button>
     </div>
   )

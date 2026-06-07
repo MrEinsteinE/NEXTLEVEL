@@ -123,3 +123,26 @@ NEXTLEVEL/
 ├── render.yaml          # Render auto-deploy config
 └── vercel.json          # Vercel routing config
 ```
+
+## Testing
+
+Smoke tests cover the auth flow (signup, login, `/me`, bad credentials, mentor
+login), protected student/mentor endpoints (auth + role enforcement), and
+state-changing write paths (study-report creation with persistence checks,
+mentor approve/reject). 29 tests in total.
+
+CI runs automatically on every push/PR via GitHub Actions:
+`test.yml` boots the backend and runs the suite; `frontend-build.yml` runs `vite build`. They run black-box against a live backend using
+Node's built-in test runner (no extra dependencies).
+
+```bash
+cd backend
+npm run dev        # in one terminal (in-memory Mongo is fine)
+npm test           # in another terminal
+```
+
+Point the tests at any environment with `BASE_URL`:
+
+```bash
+BASE_URL=https://your-api.onrender.com npm test
+```

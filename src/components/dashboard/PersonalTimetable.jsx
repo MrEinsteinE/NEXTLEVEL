@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import {
+  CalendarDays, ClipboardList, Rocket, BookMarked, Lightbulb, Clock,
+  CheckCircle2, Sparkles, Flame, Zap, Target, BookOpen, Palmtree, Smile
+} from 'lucide-react'
 
 const API = import.meta.env.VITE_API_URL || ''
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const DAY_ICONS = { Monday: '🌟', Tuesday: '🔥', Wednesday: '⚡', Thursday: '💡', Friday: '🎯', Saturday: '📚', Sunday: '🏖️' }
+const DAY_ICONS = { Monday: Sparkles, Tuesday: Flame, Wednesday: Zap, Thursday: Lightbulb, Friday: Target, Saturday: BookOpen, Sunday: Palmtree }
 
 export default function PersonalTimetable() {
   const [timetable, setTimetable] = useState(null)
@@ -18,10 +22,7 @@ export default function PersonalTimetable() {
 
   const fetchTimetable = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const res = await axios.get(`${API}/api/student/timetable/${user._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const res = await axios.get(`${API}/api/student/timetable/${user._id}`)
       setTimetable(res.data.timetable)
     } catch (err) {
       console.error('Timetable fetch error:', err)
@@ -34,12 +35,11 @@ export default function PersonalTimetable() {
     if (!timetable) return
     setSaving(day)
     try {
-      const token = localStorage.getItem('token')
       const res = await axios.post(`${API}/api/student/timetable-complete/${user._id}`, {
         timetableId: timetable._id,
         day,
         completed
-      }, { headers: { Authorization: `Bearer ${token}` } })
+      })
       setTimetable(res.data.timetable)
     } catch (err) {
       console.error('Mark complete error:', err)
@@ -61,7 +61,9 @@ export default function PersonalTimetable() {
   return (
     <div className="timetable-widget">
       <div className="widget-header">
-        <h3>📅 My Weekly Timetable</h3>
+        <h3 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          <CalendarDays size={18} strokeWidth={2} /> My Weekly Timetable
+        </h3>
         {timetable && (
           <span className="week-label">
             Week of {formatDate(timetable.weekStart)}
@@ -78,11 +80,11 @@ export default function PersonalTimetable() {
 
       {!loading && !timetable && (
         <div className="timetable-empty">
-          <div className="empty-icon">📋</div>
+          <div className="empty-icon"><ClipboardList size={48} strokeWidth={1.5} /></div>
           <h4>No Timetable Assigned Yet</h4>
           <p>Bhima Sankar Sir will assign your personalised weekly timetable once your mentorship begins.</p>
-          <p style={{ color: 'var(--color-primary)', fontWeight: 700, marginTop: '8px' }}>
-            Stay tuned — your custom schedule is coming! 🚀
+          <p style={{ color: 'var(--color-primary)', fontWeight: 700, marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            Stay tuned — your custom schedule is coming! <Rocket size={16} strokeWidth={2} />
           </p>
         </div>
       )}
@@ -110,12 +112,15 @@ export default function PersonalTimetable() {
               if (!dayData) return null
               const isDone = dayData.studentCompleted
               const isSaving = saving === day
+              const DayIcon = DAY_ICONS[day]
 
               return (
                 <div key={day} className={`timetable-day-card ${isDone ? 'done' : ''}`}>
                   <div className="day-header">
                     <div className="day-title">
-                      <span className="day-icon">{DAY_ICONS[day]}</span>
+                      <span className="day-icon" style={{ display: 'inline-flex', color: '#F97316' }}>
+                        {DayIcon && <DayIcon size={18} strokeWidth={2} />}
+                      </span>
                       <span className="day-name">{day}</span>
                     </div>
                     <label className="day-checkbox" title="Mark day complete">
@@ -131,19 +136,19 @@ export default function PersonalTimetable() {
                   <div className="day-body">
                     {dayData.subject && (
                       <div className="day-field">
-                        <span className="field-label">📖 Subject</span>
+                        <span className="field-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><BookMarked size={14} strokeWidth={2} /> Subject</span>
                         <span className="field-value">{dayData.subject}</span>
                       </div>
                     )}
                     {dayData.topic && (
                       <div className="day-field">
-                        <span className="field-label">💡 Topic</span>
+                        <span className="field-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Lightbulb size={14} strokeWidth={2} /> Topic</span>
                         <span className="field-value">{dayData.topic}</span>
                       </div>
                     )}
                     {dayData.targetHours > 0 && (
                       <div className="day-field">
-                        <span className="field-label">⏱ Target</span>
+                        <span className="field-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Clock size={14} strokeWidth={2} /> Target</span>
                         <span className="field-value field-hours">{dayData.targetHours}h</span>
                       </div>
                     )}
@@ -151,11 +156,13 @@ export default function PersonalTimetable() {
                       <div className="day-desc">{dayData.description}</div>
                     )}
                     {(!dayData.subject && !dayData.topic && !dayData.description) && (
-                      <p className="day-empty">Rest Day 😊</p>
+                      <p className="day-empty" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>Rest Day <Smile size={15} strokeWidth={2} /></p>
                     )}
                   </div>
                   {isDone && (
-                    <div className="day-done-badge">✅ Completed</div>
+                    <div className="day-done-badge" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      <CheckCircle2 size={15} strokeWidth={2} /> Completed
+                    </div>
                   )}
                 </div>
               )
@@ -198,7 +205,7 @@ export default function PersonalTimetable() {
         .field-label { font-size:0.75rem; font-weight:700; color:#94A3B8; min-width:70px; }
         .field-value { font-size:0.85rem; font-weight:600; color:#1E293B; }
         .field-hours { background:#FFF7ED; color:#F97316; padding:2px 8px; border-radius:12px; font-weight:800; }
-        .day-desc { font-size:0.8rem; color:#475569; background:#fff; padding:8px 10px; border-radius:8px; border-left:3px solid #F97316; }
+        .day-desc { font-size:0.8rem; color:#475569; background:#fff; padding:8px 10px; border-radius:8px; }
         .day-empty { color:#94A3B8; font-size:0.85rem; text-align:center; padding:8px 0; }
         .day-done-badge { margin-top:10px; text-align:center; font-size:0.78rem; font-weight:800; color:#10B981; }
         @media (max-width:768px) { .timetable-days { grid-template-columns:1fr; } }

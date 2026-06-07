@@ -9,7 +9,7 @@ export default function StoriesFeed() {
 
   const fetchStories = async () => {
     try {
-      const res = await api.get('/stories');
+      const res = await api.get('/api/stories');
       setStories(res.data.stories || []);
     } catch (err) {
       console.error('Failed to load stories', err);

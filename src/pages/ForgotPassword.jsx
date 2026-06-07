@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { useAuth } from '../context/AuthContext'
 import './Auth.css'
 
 function ForgotPassword() {
@@ -12,6 +13,19 @@ function ForgotPassword() {
   const [loading, setLoading] = useState(false)
   const [resetToken, setResetToken] = useState('')
   const navigate = useNavigate()
+  const { logout } = useAuth()
+
+  // If arriving from the emailed reset link (/forgot-password?token=…), jump to step 2.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('token')
+    if (t) { setResetToken(t); setStep(2) }
+  }, [])
+
+  // Reach login even if a session token exists (otherwise <PublicRoute> bounces).
+  const backToLogin = () => {
+    try { logout() } catch (e) { /* ignore */ }
+    navigate('/login')
+  }
 
   const handleCheckEmail = async (e) => {
     e.preventDefault()
@@ -22,13 +36,15 @@ function ForgotPassword() {
       const response = await axios.post('/api/auth/forgot-password', {
         email: email.trim().toLowerCase()
       })
-      setMessage(response.data.message || '✅ Password reset link sent to your email!')
       setError('')
-      // For local/simulated mode, proceed to step 2
-      setTimeout(() => {
-        setStep(2)
+      if (response.data.resetToken) {
+        // Local dev (no email configured): proceed straight to the reset step.
+        setResetToken(response.data.resetToken)
         setMessage('')
-      }, 1500)
+        setStep(2)
+      } else {
+        setMessage(response.data.message || 'Reset link sent to your email. Open it to set a new password.')
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'No account found with this email.')
     } finally {
@@ -38,8 +54,15 @@ function ForgotPassword() {
 
   const handleReset = async (e) => {
     e.preventDefault()
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters')
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters')
+      return
+    }
+
+    const urlParams = new URLSearchParams(window.location.search)
+    const token = urlParams.get('token') || resetToken
+    if (!token) {
+      setError('Please open the reset link from your email to continue.')
       return
     }
 
@@ -47,23 +70,13 @@ function ForgotPassword() {
     setError('')
 
     try {
-      // If we have a token from URL, use it; otherwise use simulated flow
-      const urlParams = new URLSearchParams(window.location.search)
-      const token = urlParams.get('token') || resetToken
-
-      if (token) {
-        await axios.post('/api/auth/reset-password', { token, newPassword })
-      } else {
-        // Fallback: simulated reset (for development/demo)
-        setMessage('Password reset successful! (Simulated mode)')
-      }
-
+      await axios.post('/api/auth/reset-password', { token, newPassword })
       setMessage('Password reset successful! Redirecting to login...')
       setTimeout(() => {
         navigate('/login')
-      }, 2000)
+      }, 1800)
     } catch (err) {
-      setError(err.response?.data?.message || 'Reset failed. Please try again.')
+      setError(err.response?.data?.message || 'Reset failed or the link expired. Please request a new link.')
     } finally {
       setLoading(false)
     }
@@ -117,7 +130,7 @@ function ForgotPassword() {
           )}
 
           <div className="auth-footer">
-            Remembered your password? <Link to="/login" style={{ fontWeight: '700' }}>Back to Login</Link>
+            Remembered your password? <a onClick={backToLogin} style={{ fontWeight: '700', cursor: 'pointer', color: 'var(--color-primary)' }}>Back to Login</a>
           </div>
         </div>
       </div>

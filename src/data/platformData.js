@@ -65,12 +65,6 @@ export const mentorInfo = {
     telegram: "https://t.me/shankar10GATE",
     whatsapp: "https://chat.whatsapp.com/EyUYumDUZVc2KJ6kkpvVLn",
   },
-  mockTests: [
-    { label: "GATE 2025 ECE", icon: "📘", url: "https://www.ohminstitute.in/learn/home/GATE-2025--ECE-/" },
-    { label: "GATE 2026 ECE", icon: "📘", url: "https://www.ohminstitute.in/learn/home/GATE-2026--ECE-/" },
-    { label: "GATE 2025 EE", icon: "📗", url: "https://www.ohminstitute.in/learn/home/GATE-2025--EE-/section/536990/lesson/3340833" },
-    { label: "GATE 2026 EE", icon: "📗", url: "https://www.ohminstitute.in/learn/home/GATE-2026--EE-/" },
-  ],
 }
 
 export const defaultDailyTasks = [

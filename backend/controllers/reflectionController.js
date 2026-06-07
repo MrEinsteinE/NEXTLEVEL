@@ -32,7 +32,8 @@ export const saveReflection = async (req, res) => {
 // GET /api/reflections/:userId
 export const getReflections = async (req, res) => {
   try {
-    const { userId } = req.params;
+    // Students may only read their own reflections (never trust the URL id).
+    const userId = req.user.role === 'student' ? req.user._id.toString() : req.params.userId;
     const list = await DailyReflection.find({ userId }).sort({ date: -1 }).limit(90);
     res.json({ success: true, reflections: list });
   } catch (err) {

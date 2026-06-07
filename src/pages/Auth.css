@@ -74,17 +74,28 @@
   gap: var(--sp-6);
 }
 
+/* Stack each label directly above its input. Without this the label and input
+   are inline-level and flow side-by-side, throwing the whole form out of
+   alignment. */
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
 .form-group label {
+  display: block;
   font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: var(--sp-1);
+  margin-bottom: var(--sp-2);
 }
 
 .form-group input,
 .form-group select {
+  width: 100%;
+  box-sizing: border-box;
   background: rgba(255, 255, 255, 0.8);
   border: 2px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -94,11 +105,66 @@
   transition: border-color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
+.form-group input::placeholder {
+  color: var(--color-text-muted);
+}
+
 .form-group input:focus,
 .form-group select:focus {
   border-color: var(--color-primary);
   background: white;
   box-shadow: 0 0 0 4px var(--color-primary-light);
+}
+
+/* ── Branch selector ────────────────────────────────────────
+   Three equal, clickable cards. The active card gets the primary
+   colour + ring so the selection is obvious. */
+.branch-selector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-3);
+}
+
+.branch-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0.9rem 0.5rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  user-select: none;
+  text-align: center;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.branch-option:hover {
+  border-color: var(--color-primary);
+  transform: translate3d(0, -2px, 0);
+}
+
+.branch-option.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  box-shadow: 0 0 0 4px var(--color-primary-light);
+}
+
+.branch-option .branch-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.branch-option strong {
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.branch-option.selected strong {
+  color: var(--color-primary);
 }
 
 .auth-submit {
@@ -141,3 +207,7 @@
 @media (max-width: 480px) {
   .auth-card { padding: var(--sp-6) var(--sp-4); }
 }
+
+/* Logo should stack centered above the title (gradient-text is inline-block) */
+.auth-logo-img { display: block; }
+.auth-logo h1 { display: block; }

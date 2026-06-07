@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import toast from 'react-hot-toast'
+import { FileText, ClipboardList, CalendarDays, BookOpen, BookMarked, Clock, PenLine, BarChart3, Target, Brain, Pencil, Send, Trash2, Laugh, Smile, Meh, Moon, Frown } from 'lucide-react'
 import { getSyllabus } from '../../data/syllabus.js'
 import './DailyStudyReport.css'
 
 const MOODS = [
-  { value: 'great', emoji: '😊', label: 'Great' },
-  { value: 'good', emoji: '😌', label: 'Good' },
-  { value: 'neutral', emoji: '😐', label: 'Neutral' },
-  { value: 'tired', emoji: '😴', label: 'Tired' },
-  { value: 'stressed', emoji: '😰', label: 'Stressed' },
+  { value: 'great', Icon: Laugh, label: 'Great' },
+  { value: 'good', Icon: Smile, label: 'Good' },
+  { value: 'neutral', Icon: Meh, label: 'Neutral' },
+  { value: 'tired', Icon: Moon, label: 'Tired' },
+  { value: 'stressed', Icon: Frown, label: 'Stressed' },
 ]
 
 function DailyStudyReport({ userKey }) {
@@ -30,7 +32,7 @@ function DailyStudyReport({ userKey }) {
   const [subjects, setSubjects] = useState([])
   const [topics, setTopics] = useState('')
   const [studyHours, setStudyHours] = useState(0)
-  const [pyqsSolved, setPyqsSolved] = useState(0)
+  const [pyqsSolved, setPyqsSolved] = useState('')
   const [mockTestScore, setMockTestScore] = useState('')
   const [accuracy, setAccuracy] = useState('')
   const [difficulties, setDifficulties] = useState('')
@@ -39,21 +41,19 @@ function DailyStudyReport({ userKey }) {
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
 
-  const token = localStorage.getItem('token')
   const [loadingReports, setLoadingReports] = useState(true)
 
   useEffect(() => {
-    if (user._id && token) fetchRecentReports()
-  }, [user._id, token])
+    if (user._id) fetchRecentReports()
+  }, [user._id])
 
   const fetchRecentReports = async () => {
     try {
-      const res = await axios.get(`/api/student/study-reports/${user._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const res = await axios.get(`/api/student/study-reports/${user._id}`)
       // map backend field 'subject' to 'subjects' array required by old UI 
       const mappedReports = (res.data.reports || []).map(r => ({
         ...r,
+        id: r._id, // needed for edit/delete (handleEdit/handleDelete read .id)
         subjects: r.subject ? r.subject.split(', ') : [],
         topics: r.topic || ''
       }))
@@ -81,7 +81,7 @@ function DailyStudyReport({ userKey }) {
     setSubjects([])
     setTopics('')
     setStudyHours(0)
-    setPyqsSolved(0)
+    setPyqsSolved('')
     setMockTestScore('')
     setAccuracy('')
     setDifficulties('')
@@ -104,28 +104,35 @@ function DailyStudyReport({ userKey }) {
     }
 
     try {
-      setSuccess('Submitting...')
+      setSuccess(editingId ? 'Saving…' : 'Submitting...')
       setError('')
-      await axios.post('/api/student/study-report', {
-        userId: user._id,
-        date: date,
+      const payload = {
         subject: subjects.join(', '),
         topic: topics,
         studyHours: Number(studyHours),
         pyqsSolved: Number(pyqsSolved) || 0,
         mockTestScore: mockTestScore ? Number(mockTestScore) : null,
         accuracy: accuracy ? Number(accuracy) : null,
-        difficulties: difficulties,
-        tomorrowPlan: tomorrowPlan,
-        mood: mood
-      }, { headers: { Authorization: `Bearer ${token}` } })
+        difficulties,
+        tomorrowPlan,
+        mood
+      }
+      if (editingId) {
+        await axios.patch(`/api/student/study-report/${editingId}`, payload)
+      } else {
+        await axios.post('/api/student/study-report', { date, ...payload })
+      }
 
-      setSuccess(editingId ? 'Report updated successfully!' : 'Report submitted! 🎉')
+      const msg = editingId ? 'Report updated successfully!' : 'Report submitted!'
+      toast.success(msg)
+      setSuccess(msg)
       resetForm()
       fetchRecentReports()
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
-      setError(`❌ ${err.response?.data?.message || 'Failed to submit report.'}`)
+      const msg = err.response?.data?.message || 'Failed to submit report.'
+      toast.error(msg)
+      setError(msg)
       setSuccess('')
     }
   }
@@ -145,10 +152,15 @@ function DailyStudyReport({ userKey }) {
     setViewMode('form')
   }
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (!confirm('Delete this report?')) return
-    const updated = reports.filter(r => r.id !== id)
-    saveReports(updated)
+    try {
+      await axios.delete(`/api/student/study-report/${id}`)
+      toast.success('Report deleted')
+      fetchRecentReports()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not delete report')
+    }
   }
 
   const sortedReports = [...reports].sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -160,13 +172,13 @@ function DailyStudyReport({ userKey }) {
           className={`report-tab ${viewMode === 'form' ? 'active' : ''}`}
           onClick={() => { setViewMode('form'); resetForm() }}
         >
-          📝 {editingId ? 'Edit Report' : 'New Report'}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><FileText size={16} strokeWidth={2} />{editingId ? 'Edit Report' : 'New Report'}</span>
         </button>
         <button
           className={`report-tab ${viewMode === 'history' ? 'active' : ''}`}
           onClick={() => setViewMode('history')}
         >
-          📋 History ({reports.length})
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><ClipboardList size={16} strokeWidth={2} />History ({reports.length})</span>
         </button>
       </div>
 
@@ -177,13 +189,13 @@ function DailyStudyReport({ userKey }) {
         <form className="report-form" onSubmit={handleSubmit}>
           {/* Date */}
           <div className="form-row">
-            <label>📅 Date</label>
-            <input type="date" value={date} max={todayStr} onChange={e => setDate(e.target.value)} />
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><CalendarDays size={16} strokeWidth={2} />Date</label>
+            <input type="date" value={date} max={todayStr} onChange={e => setDate(e.target.value)} disabled={!!editingId} title={editingId ? "The date can't be changed when editing a report" : undefined} />
           </div>
 
           {/* Subjects multi-select */}
           <div className="form-row">
-            <label>📚 Subjects Studied</label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><BookOpen size={16} strokeWidth={2} />Subjects Studied</label>
             <div className="subject-chips">
               {allSubjects.map(s => (
                 <button
@@ -200,7 +212,7 @@ function DailyStudyReport({ userKey }) {
 
           {/* Topics covered */}
           <div className="form-row">
-            <label>📖 Topics Covered</label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><BookMarked size={16} strokeWidth={2} />Topics Covered</label>
             <input
               type="text"
               placeholder="e.g., Eigenvalues, Superposition Theorem"
@@ -212,38 +224,38 @@ function DailyStudyReport({ userKey }) {
           {/* Number fields row */}
           <div className="form-numbers">
             <div className="form-row">
-              <label>⏱️ Study Hours</label>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Clock size={16} strokeWidth={2} />Study Hours</label>
               <input type="number" min="0" max="24" step="0.5" value={studyHours} onChange={e => setStudyHours(e.target.value)} />
             </div>
             <div className="form-row">
-              <label>📝 PYQs Solved</label>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><PenLine size={16} strokeWidth={2} />PYQs Solved</label>
               <input type="number" min="0" value={pyqsSolved} onChange={e => setPyqsSolved(e.target.value)} />
             </div>
             <div className="form-row">
-              <label>📊 Mock Test Score</label>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><BarChart3 size={16} strokeWidth={2} />Mock Test Score</label>
               <input type="number" min="0" max="100" placeholder="Optional" value={mockTestScore} onChange={e => setMockTestScore(e.target.value)} />
             </div>
             <div className="form-row">
-              <label>🎯 Accuracy %</label>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Target size={16} strokeWidth={2} />Accuracy %</label>
               <input type="number" min="0" max="100" placeholder="Optional" value={accuracy} onChange={e => setAccuracy(e.target.value)} />
             </div>
           </div>
 
           {/* Difficulties */}
           <div className="form-row">
-            <label>😕 Difficulties Faced</label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Frown size={16} strokeWidth={2} />Difficulties Faced</label>
             <textarea rows="2" placeholder="Any challenges or concepts you struggled with..." value={difficulties} onChange={e => setDifficulties(e.target.value)} />
           </div>
 
           {/* Plan for tomorrow */}
           <div className="form-row">
-            <label>📋 Plan for Tomorrow</label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><ClipboardList size={16} strokeWidth={2} />Plan for Tomorrow</label>
             <textarea rows="2" placeholder="What do you plan to study tomorrow?" value={tomorrowPlan} onChange={e => setTomorrowPlan(e.target.value)} />
           </div>
 
           {/* Mood */}
           <div className="form-row">
-            <label>🧠 How are you feeling?</label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Brain size={16} strokeWidth={2} />How are you feeling?</label>
             <div className="mood-picker">
               {MOODS.map(m => (
                 <button
@@ -252,7 +264,7 @@ function DailyStudyReport({ userKey }) {
                   className={`mood-btn ${mood === m.value ? 'selected' : ''}`}
                   onClick={() => setMood(m.value)}
                 >
-                  <span className="mood-emoji">{m.emoji}</span>
+                  <span className="mood-emoji"><m.Icon size={20} strokeWidth={2} /></span>
                   <span className="mood-label">{m.label}</span>
                 </button>
               ))}
@@ -260,7 +272,9 @@ function DailyStudyReport({ userKey }) {
           </div>
 
           <button type="submit" className="report-submit-btn">
-            {editingId ? '✏️ Update Report' : '📤 Submit Report'}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              {editingId ? <><Pencil size={16} strokeWidth={2} />Update Report</> : <><Send size={16} strokeWidth={2} />Submit Report</>}
+            </span>
           </button>
         </form>
       )}
@@ -277,26 +291,26 @@ function DailyStudyReport({ userKey }) {
               <div className="report-card-header">
                 <span className="report-date">{new Date(r.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
                 <div className="report-actions">
-                  <button className="edit-btn" onClick={() => handleEdit(r)}>✏️</button>
-                  <button className="delete-btn" onClick={() => handleDelete(r.id)}>🗑️</button>
+                  <button className="edit-btn" onClick={() => handleEdit(r)}><Pencil size={15} strokeWidth={2} style={{ verticalAlign: 'middle' }} /></button>
+                  <button className="delete-btn" onClick={() => handleDelete(r.id)}><Trash2 size={15} strokeWidth={2} style={{ verticalAlign: 'middle' }} /></button>
                 </div>
               </div>
               <div className="report-card-body">
                 <div className="report-stats-row">
-                  <span>⏱️ {r.studyHours}h</span>
-                  <span>📝 {r.pyqsSolved} PYQs</span>
-                  {r.mockTestScore !== null && <span>📊 {r.mockTestScore}/100</span>}
-                  {r.accuracy !== null && <span>🎯 {r.accuracy}%</span>}
-                  <span>{MOODS.find(m => m.value === r.mood)?.emoji || '😐'}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Clock size={15} strokeWidth={2} />{r.studyHours}h</span>
+                  {r.pyqsSolved > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><PenLine size={15} strokeWidth={2} />{r.pyqsSolved} PYQs</span>}
+                  {r.mockTestScore > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><BarChart3 size={15} strokeWidth={2} />{r.mockTestScore}/100</span>}
+                  {r.accuracy > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Target size={15} strokeWidth={2} />{r.accuracy}%</span>}
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>{(() => { const MoodIcon = MOODS.find(m => m.value === r.mood)?.Icon || Meh; return <MoodIcon size={15} strokeWidth={2} /> })()}</span>
                 </div>
                 {r.subjects?.length > 0 && (
                   <div className="report-subjects">
                     {r.subjects.map(s => <span key={s} className="report-subject-tag">{s}</span>)}
                   </div>
                 )}
-                {r.topics && <p className="report-topics">📖 {r.topics}</p>}
-                {r.difficulties && <p className="report-diff">😕 {r.difficulties}</p>}
-                {r.tomorrowPlan && <p className="report-plan">📋 {r.tomorrowPlan}</p>}
+                {r.topics && <p className="report-topics" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><BookMarked size={15} strokeWidth={2} />{r.topics}</p>}
+                {r.difficulties && <p className="report-diff" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Frown size={15} strokeWidth={2} />{r.difficulties}</p>}
+                {r.tomorrowPlan && <p className="report-plan" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><ClipboardList size={15} strokeWidth={2} />{r.tomorrowPlan}</p>}
               </div>
             </div>
           ))}

@@ -11,6 +11,7 @@ export const getMonthlyReport = async (req, res) => {
     const requester = req.user;
     const { userId } = req.params;
     if (!userId) return res.status(400).json({ error: true, message: 'userId required' });
+    if (!/^[a-f\d]{24}$/i.test(String(userId))) return res.status(400).json({ error: true, message: 'Invalid user id' });
 
     // Only allow if requester is the same user or a mentor/admin
     if (requester.role !== 'mentor' && requester.role !== 'admin' && requester._id.toString() !== userId.toString()) {

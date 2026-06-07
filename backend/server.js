@@ -1,11 +1,15 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import serverlessHttp from 'serverless-http';
 import http from 'http';
+import dns from 'dns';
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import ChatMessage from './models/ChatMessage.js';
 
 // Routes
@@ -29,19 +33,42 @@ import focusRoutes from './routes/focus.js';
 import reportcardRoutes from './routes/reportcard.js';
 import chatRoutes from './routes/chat.js';
 import queriesRoutes from './routes/queries.js';
+import pushRoutes from './routes/push.js';
 
 // Services
 import { initCronJobs } from './services/cronJobs.js';
+import { seedDevData } from './services/devSeed.js';
 
 // Load env
 dotenv.config();
+
+// ─── DNS resolver override ──────────────────────────────────
+// Some networks' default DNS (e.g. a home router) refuse SRV-record lookups,
+// which breaks `mongodb+srv://` connections with `querySrv ECONNREFUSED`.
+// Setting DNS_SERVERS (e.g. "1.1.1.1,8.8.8.8") points Node's resolver at a
+// public DNS that serves SRV records. Only affects dns.resolve*() (the SRV/TXT
+// lookups Atlas needs); plain A-record lookups still use the OS resolver.
+if (process.env.DNS_SERVERS) {
+  try {
+    const servers = process.env.DNS_SERVERS.split(',').map(s => s.trim()).filter(Boolean);
+    if (servers.length) {
+      dns.setServers(servers);
+      console.log('🌐 DNS resolver overridden →', servers.join(', '));
+    }
+  } catch (e) {
+    console.warn('⚠️  Failed to apply DNS_SERVERS:', e.message);
+  }
+}
 
 // ─── Validate Required Environment Variables ─────────────────
 const requiredVars = ['MONGODB_URI', 'JWT_SECRET'];
 for (const v of requiredVars) {
   if (!process.env[v]) {
     console.error(`❌ Missing required environment variable: ${v}`);
-    if (process.env.NODE_ENV === 'production') {
+    // JWT_SECRET is fatal in ANY environment — jwt.sign/verify throw on an
+    // undefined secret, so auth would 500 on every request. MONGODB_URI is only
+    // fatal in production; in dev the in-memory MongoDB fallback covers a missing URI.
+    if (v === 'JWT_SECRET' || process.env.NODE_ENV === 'production') {
       process.exit(1);
     }
   }
@@ -49,35 +76,65 @@ for (const v of requiredVars) {
 
 const app = express();
 
+// Trust the first proxy (Render/Vercel) so req.ip and rate limiting work correctly.
+app.set('trust proxy', 1);
+
+// ─── Security headers ───────────────────────────────────────
+// CSP is disabled (this is a JSON API, not an HTML host) and CORP is set to
+// cross-origin so the separately-deployed frontend can read responses.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
+
 // ─── CORS ───────────────────────────────────────────────────
+const isProd = process.env.NODE_ENV === 'production';
+// Allow Vercel preview deployments (*.vercel.app) only when explicitly enabled,
+// since otherwise ANY vercel-hosted site could call this API.
+const allowVercelPreviews = process.env.ALLOW_VERCEL_PREVIEWS === 'true';
+
+// Explicit allowlist. FRONTEND_URL may be a comma-separated list of origins.
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:3000',
+  ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(s => s.trim()) : []),
   'http://localhost:3000',
   'http://localhost:5173',
+  'http://localhost:4173',
   'https://next-level-by-bhima-sankar-sir-mentoring.vercel.app',
   'https://nextlevel-snowy.vercel.app'
 ].filter(Boolean);
 
+function isAllowedOrigin(origin) {
+  // No Origin header (curl, mobile apps, same-origin, server-to-server) → allow.
+  if (!origin) return true;
+  // Exact match against the allowlist. (A prefix/startsWith match would let
+  // `https://app.vercel.app.attacker.com` slip through — origins have no path,
+  // so equality is the only correct comparison.)
+  if (allowedOrigins.some(o => origin === o)) return true;
+  // Opt-in Vercel preview support.
+  if (allowVercelPreviews && /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) return true;
+  // Development convenience: permissive when not in production.
+  if (!isProd) return true;
+  return false;
+}
+
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.some(o => origin.startsWith(o) || origin.includes('vercel.app'))) {
-      callback(null, true);
-    } else {
-      console.warn(`CORS blocked: ${origin}`);
-      callback(null, true); // Allow all in dev; tighten in production if needed
-    }
+    if (isAllowedOrigin(origin)) return callback(null, true);
+    console.warn(`CORS blocked origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token']
 }));
 
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      if (isAllowedOrigin(origin)) return callback(null, true);
+      return callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true
   }
@@ -101,26 +158,38 @@ io.on('connection', (socket) => {
     // ignore token errors for socket connection
   }
 
-  // Join a student-specific room: client should send their userId
+  // Join a student-specific room — ONLY the student themselves or a mentor may
+  // join, authorized against the verified JWT on the socket (mirrors the REST
+  // guard in chatController). Prevents eavesdropping on another user's private
+  // chat/notifications/feedback stream (IDOR).
   socket.on('join-student-room', (userId) => {
     if (!userId) return;
-    const room = `student_${userId}`;
-    socket.join(room);
-    console.log(`Socket ${socket.id} joined student room ${room}`);
+    const uid = String(userId);
+    const isOwner = socket.userRole === 'student' && String(socket.userId) === uid;
+    const isMentor = socket.userRole === 'mentor';
+    if (!isOwner && !isMentor) return;
+    socket.join(`student_${uid}`);
   });
 
-  // Join mentors room
+  // Join the mentors room — mentors only (this room receives all private
+  // student↔mentor chat broadcasts, so it must be gated on role).
   socket.on('join-mentor-room', () => {
+    if (socket.userRole !== 'mentor') return;
     socket.join('mentors');
-    console.log(`Socket ${socket.id} joined mentors room`);
   });
 
   // Chat messages (real-time)
   socket.on('chat-message', async (payload) => {
     try {
-      const senderId = socket.userId || payload.sender;
+      // Sender identity comes from the verified JWT on the socket — never from
+      // the client payload, which could otherwise spoof any sender/recipient.
+      const senderId = socket.userId;
+      if (!senderId) return;
       const text = (payload && payload.message) ? String(payload.message).trim() : '';
-      const toUserId = payload && payload.toUserId ? payload.toUserId : null;
+      // Only a mentor may direct a message at an arbitrary student's room.
+      const rawTo = (socket.userRole === 'mentor' && payload && payload.toUserId) ? String(payload.toUserId) : null;
+      // Only accept a well-formed ObjectId as the recipient (prevents spoofing / garbage rooms).
+      const toUserId = (rawTo && /^[a-f\d]{24}$/i.test(rawTo)) ? rawTo : null;
       if (!text) return;
 
       // Determine room: if a recipient specified, send to that student's room, else use sender's student room
@@ -159,7 +228,13 @@ io.on('connection', (socket) => {
 // Socket authentication middleware: attach user info when token present
 io.use((socket, next) => {
   try {
-    const token = socket.handshake.auth && socket.handshake.auth.token;
+    // Token comes from the httpOnly cookie (sent on the handshake when the client
+    // uses withCredentials); fall back to handshake.auth.token for legacy clients.
+    let token = socket.handshake.auth && socket.handshake.auth.token;
+    if (!token) {
+      const raw = socket.handshake.headers && socket.handshake.headers.cookie;
+      if (raw) { const m = raw.match(/(?:^|;\s*)authToken=([^;]+)/); if (m) token = decodeURIComponent(m[1]); }
+    }
     if (!token) return next();
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.userId = decoded.id || decoded.userId || decoded._id || null;
@@ -189,6 +264,15 @@ const PORT = process.env.PORT || 5000;
 let cachedDb = null;
 let lastDbError = null;
 
+// A failed connection makes Mongoose emit an 'error' event on the connection.
+// Without a listener, Node treats it as an unhandled 'error' event and crashes
+// the process — before the in-memory fallback below can run. This listener
+// swallows it so the fallback can take over (and logs for visibility).
+mongoose.connection.on('error', (err) => {
+  lastDbError = err?.message || String(err);
+  console.warn('⚠️  MongoDB connection error event:', lastDbError);
+});
+
 const connectDB = async () => {
   if (cachedDb && mongoose.connection.readyState === 1) {
     return cachedDb;
@@ -196,7 +280,7 @@ const connectDB = async () => {
 
   const mongooseOptions = {
     serverSelectionTimeoutMS: 10000,
-    socketTimeoutMS: 5000,
+    socketTimeoutMS: 45000, // 5s was too low for Atlas — cron aggregations/writes could be killed mid-op
     family: 4
   };
 
@@ -221,13 +305,20 @@ const connectDB = async () => {
     if (conn) return conn;
   }
 
-  // Try localhost fallback (development only)
-  if (process.env.NODE_ENV !== 'production') {
-    const localUri = 'mongodb://127.0.0.1:27017/nextlevel';
-    const localConn = await tryConnect(localUri);
-    if (localConn) return localConn;
+  // Development fallbacks (only when no working MONGODB_URI was provided).
+  // Fail-CLOSED: only an explicit development/test env may fall back to a local or
+  // in-memory DB. An unset or misspelled NODE_ENV must NEVER silently serve an
+  // ephemeral in-memory database in what is actually production.
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+    // Probe a locally-installed MongoDB only if explicitly requested, to avoid a
+    // slow timeout / connection churn for the common case of no local mongod.
+    if (process.env.USE_LOCAL_MONGO === 'true') {
+      const localUri = 'mongodb://127.0.0.1:27017/nextlevel';
+      const localConn = await tryConnect(localUri);
+      if (localConn) return localConn;
+    }
 
-    // Finally, try in-memory MongoDB for development convenience
+    // In-memory MongoDB — zero-setup dev database (data resets on restart)
     try {
       console.log('Starting in-memory MongoDB for development (mongodb-memory-server)');
       const { MongoMemoryServer } = await import('mongodb-memory-server');
@@ -280,7 +371,11 @@ app.use('/api', async (req, res, next) => {
   }
 
   if (!cachedDb) {
-    return res.status(500).json({ error: true, message: "Database connection failed.", details: lastDbError });
+    return res.status(500).json({
+      error: true,
+      message: "Database connection failed.",
+      ...(isProd ? {} : { details: lastDbError })
+    });
   }
   
   next();
@@ -288,8 +383,77 @@ app.use('/api', async (req, res, next) => {
 
 // (Health check was moved above DB middleware)
 
+// ─── Rate limiting ──────────────────────────────────────────
+// Auth endpoints get a tight limit (brute-force protection); the rest of the
+// API gets a generous one. Both are skipped in the test env so the smoke-test
+// suite isn't throttled.
+const skipRateLimit = () => process.env.NODE_ENV === 'test';
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipRateLimit,
+  message: { error: true, message: 'Too many attempts. Please try again in a few minutes.' }
+});
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipRateLimit,
+  message: { error: true, message: 'Too many requests. Please slow down.' }
+});
+// Tighter limit for write-heavy / abusable feature endpoints.
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 150,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipRateLimit,
+  message: { error: true, message: 'Too many requests to this feature. Please slow down.' }
+});
+app.use('/api', apiLimiter);
+
 // ─── API Routes ─────────────────────────────────────────────
-app.use('/api/auth', authRoutes);
+// ─── CSRF protection (double-submit cookie) ─────────────────
+// Every client gets a readable `csrfToken` cookie; state-changing requests must
+// echo it in the X-CSRF-Token header. A cross-site attacker can ride the auth
+// cookie but cannot read this cookie (it's on our origin) to forge the header,
+// so forged mutations are rejected. Safe methods and the auth-bootstrap routes
+// (no session yet) are exempt.
+const CSRF_EXEMPT = new Set([
+  '/api/auth/login', '/api/auth/mentor-login', '/api/auth/signup',
+  '/api/auth/verify-email', '/api/auth/resend-verification',
+  '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/logout'
+]);
+const csrfCookieOptions = () => ({
+  httpOnly: false, // readable so the client can echo it back (double-submit)
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  path: '/'
+});
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api')) return next();
+  const raw = req.headers.cookie || '';
+  const match = raw.match(/(?:^|;\s*)csrfToken=([^;]+)/);
+  let cookieToken = match ? decodeURIComponent(match[1]) : null;
+  if (!cookieToken) {
+    cookieToken = crypto.randomBytes(32).toString('hex');
+    res.cookie('csrfToken', cookieToken, csrfCookieOptions());
+  }
+  const method = req.method.toUpperCase();
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return next();
+  if (CSRF_EXEMPT.has(req.path)) return next();
+  const headerToken = req.headers['x-csrf-token'];
+  if (!headerToken || headerToken !== cookieToken) {
+    return res.status(403).json({ error: true, message: 'Invalid or missing CSRF token.' });
+  }
+  next();
+});
+
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/mentor', mentorRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
@@ -298,17 +462,18 @@ app.use('/api/flashcards', flashcardRoutes);
 app.use('/api/pyq', pyqRoutes);
 app.use('/api/tracker', trackerRoutes);
 app.use('/api/mock-test', mockTestRoutes);
-app.use('/api/feedback', feedbackRoutes);
+app.use('/api/feedback', writeLimiter, feedbackRoutes);
 app.use('/api/reflections', reflectionsRoutes);
 app.use('/api/notifications', notificationsRoutes);
-app.use('/api/partnerships', partnershipsRoutes);
+app.use('/api/partnerships', writeLimiter, partnershipsRoutes);
 app.use('/api/weekly-challenge', weeklyChallengeRoutes);
 app.use('/api/notes', notesRoutes);
-app.use('/api/stories', storiesRoutes);
+app.use('/api/stories', writeLimiter, storiesRoutes);
 app.use('/api/focus', focusRoutes);
 app.use('/api/reportcard', reportcardRoutes);
 app.use('/api/chat', chatRoutes);
-app.use('/api/queries', queriesRoutes);
+app.use('/api/queries', writeLimiter, queriesRoutes);
+app.use('/api/push', pushRoutes);
 
 // Note: temporary admin/dev routes removed after seeding for security.
 
@@ -352,6 +517,7 @@ app.use((err, req, res, next) => {
 if (!process.env.VERCEL) {
   connectDB().then(() => {
     initCronJobs(io);
+    seedDevData();
     httpServer.listen(PORT, () => {
       console.log(`🚀 NEXT_LEVEL Backend running on port ${PORT}`);
       console.log(`📡 API: http://localhost:${PORT}/api/health`);

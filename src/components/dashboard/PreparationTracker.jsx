@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import { Target, Pencil, Save, Sun, CalendarDays, CalendarRange } from 'lucide-react'
 import './PreparationTracker.css'
 
 function PreparationTracker({ userKey }) {
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   const userId = userKey || user.id || user.email || 'default'
 
-  const token = localStorage.getItem('token')
   const [editMode, setEditMode] = useState(false)
   const [targets, setTargets] = useState({ daily: 6, weekly: 42, monthly: 180 })
   const [tempTargets, setTempTargets] = useState({ daily: 6, weekly: 42, monthly: 180 })
@@ -14,14 +14,14 @@ function PreparationTracker({ userKey }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (user._id && token) fetchData()
+    if (user._id) fetchData()
   }, [])
 
   const fetchData = async () => {
     try {
       const [progRes, targetRes] = await Promise.all([
-        axios.get(`/api/student/progress/${user._id}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: {} })),
-        axios.get(`/api/student/targets/${user._id}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: {} }))
+        axios.get(`/api/student/progress/${user._id}`).catch(() => ({ data: {} })),
+        axios.get(`/api/student/targets/${user._id}`).catch(() => ({ data: {} }))
       ])
       const p = progRes.data.progress || {}
       setHours({ 
@@ -49,9 +49,7 @@ function PreparationTracker({ userKey }) {
     setTargets({ ...tempTargets })
     setEditMode(false)
     try {
-      await axios.post(`/api/student/targets/${user._id}`, tempTargets, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      await axios.post(`/api/student/targets/${user._id}`, tempTargets)
     } catch (err) {
       console.error('Failed to save targets:', err)
     }
@@ -61,7 +59,7 @@ function PreparationTracker({ userKey }) {
 
   const cards = [
     {
-      icon: '🌅',
+      icon: <Sun size={18} strokeWidth={2} />,
       title: 'Daily',
       current: hours.today,
       target: targets.daily,
@@ -69,7 +67,7 @@ function PreparationTracker({ userKey }) {
       key: 'daily',
     },
     {
-      icon: '📅',
+      icon: <CalendarDays size={18} strokeWidth={2} />,
       title: 'Weekly',
       current: hours.week,
       target: targets.weekly,
@@ -77,7 +75,7 @@ function PreparationTracker({ userKey }) {
       key: 'weekly',
     },
     {
-      icon: '📆',
+      icon: <CalendarRange size={18} strokeWidth={2} />,
       title: 'Monthly',
       current: hours.month,
       target: targets.monthly,
@@ -89,14 +87,14 @@ function PreparationTracker({ userKey }) {
   return (
     <div className="prep-tracker">
       <div className="prep-header">
-        <h3>🎯 Preparation Tracker</h3>
+        <h3><Target size={18} strokeWidth={2} style={{ verticalAlign: '-3px' }} /> Preparation Tracker</h3>
         {!editMode ? (
           <button className="prep-edit-btn" onClick={() => { setTempTargets({ ...targets }); setEditMode(true) }}>
-            ✏️ Edit Targets
+            <Pencil size={16} strokeWidth={2} style={{ verticalAlign: '-3px' }} /> Edit Targets
           </button>
         ) : (
           <button className="prep-save-btn" onClick={handleSave}>
-            💾 Save All Targets
+            <Save size={16} strokeWidth={2} style={{ verticalAlign: '-3px' }} /> Save All Targets
           </button>
         )}
       </div>

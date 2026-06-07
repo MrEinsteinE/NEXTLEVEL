@@ -6,8 +6,19 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext'
 import './index.css'
+import './dark-theme.css'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { startKeepAlive } from './utils/keepAlive'
+import { attachCsrf } from './utils/csrf.js'
+
+// Register the service worker (PWA install + offline shell + web push). The fetch
+// handler is network-first and only touches navigations, so it doesn't interfere
+// with Vite HMR; registering in dev too lets push be tested locally.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}
 
 // Set globally so all relative `/api` calls route to the backend in production.
 // If `VITE_API_URL` is missing or empty (frontend deployed without envs),
@@ -18,6 +29,10 @@ import { startKeepAlive } from './utils/keepAlive'
     ? String(rawUrl).replace(/\/api\/?$/i, '')
     : 'https://nextlevel-backend.onrender.com';
   axios.defaults.baseURL = baseHost;
+  // Send the httpOnly auth cookie on every cross-origin request.
+  axios.defaults.withCredentials = true;
+  // Attach the CSRF token header to state-changing requests made via raw axios.
+  axios.interceptors.request.use(attachCsrf);
 }
 
 // Initialize theme from localStorage so UI matches user's preference on load
@@ -27,6 +42,13 @@ try {
 } catch (e) {
   // ignore (e.g., during server-side rendering or restricted environments)
 }
+
+// Disable the browser right-click context menu site-wide (product requirement).
+// Note: this is a deterrent, not real protection — content is still accessible
+// via devtools/view-source. Real security lives on the backend.
+try {
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
+} catch (e) { /* ignore */ }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -52,9 +52,11 @@ export const updateTargets = async (req, res) => {
     const user = await User.findById(req.params.userId);
     if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
 
-    if (daily !== undefined) user.targets.daily = Math.max(0, Number(daily));
-    if (weekly !== undefined) user.targets.weekly = Math.max(0, Number(weekly));
-    if (monthly !== undefined) user.targets.monthly = Math.max(0, Number(monthly));
+    // Clamp to physical bounds; reject non-numeric so Mongoose doesn't 500 on NaN.
+    const clampHours = (v, max) => { const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(0, n)) : null; };
+    if (daily !== undefined) { const v = clampHours(daily, 24); if (v === null) return res.status(400).json({ error: true, message: 'Invalid daily target.' }); user.targets.daily = v; }
+    if (weekly !== undefined) { const v = clampHours(weekly, 168); if (v === null) return res.status(400).json({ error: true, message: 'Invalid weekly target.' }); user.targets.weekly = v; }
+    if (monthly !== undefined) { const v = clampHours(monthly, 744); if (v === null) return res.status(400).json({ error: true, message: 'Invalid monthly target.' }); user.targets.monthly = v; }
     await user.save();
 
     res.json({ success: true, targets: user.targets });
@@ -119,10 +121,15 @@ export const getProgress = async (req, res) => {
 // ─── POST /api/student/study-report ────────────────────────
 export const createStudyReport = async (req, res) => {
   try {
-    const { userId, date, subject, topic, studyHours, pyqsSolved, mockTestScore, accuracy, difficulties } = req.body;
+    // Always attribute the report to the authenticated student — never trust a
+    // client-supplied userId (prevents writing reports as another user).
+    const userId = req.user._id;
+    const { date, subject, topic, studyHours, pyqsSolved, mockTestScore, accuracy, difficulties, mood, tomorrowPlan } = req.body;
+    // Keep optional percentage fields null when blank (so history doesn't show a fake "0%").
+    const clampPct = (v) => (v === undefined || v === null || v === '') ? null : Math.min(100, Math.max(0, Number(v)));
 
-    if (!userId || !date || !subject || !topic || studyHours === undefined || pyqsSolved === undefined) {
-      return res.status(400).json({ error: true, message: 'Missing required fields (userId, date, subject, topic, studyHours, pyqsSolved).' });
+    if (!date || !subject || !topic || studyHours === undefined || pyqsSolved === undefined) {
+      return res.status(400).json({ error: true, message: 'Missing required fields (date, subject, topic, studyHours, pyqsSolved).' });
     }
 
     const reportDate = startOfDay(new Date(date));
@@ -140,10 +147,18 @@ export const createStudyReport = async (req, res) => {
       topic,
       studyHours: Math.max(0, Number(studyHours)),
       pyqsSolved: Math.max(0, Number(pyqsSolved)),
-      mockTestScore: Math.min(100, Math.max(0, Number(mockTestScore || 0))),
-      accuracy: Math.min(100, Math.max(0, Number(accuracy || 0))),
-      difficulties: difficulties || ''
+      mockTestScore: clampPct(mockTestScore),
+      accuracy: clampPct(accuracy),
+      difficulties: difficulties || '',
+      mood: mood || '',
+      tomorrowPlan: tomorrowPlan || ''
     });
+
+    // Capture prior activity to detect a "comeback" (returning after a 3+ day gap).
+    const preUser = await User.findById(userId).select('lastActiveDate');
+    const prevActive = preUser?.lastActiveDate ? startOfDay(new Date(preUser.lastActiveDate)) : null;
+    const gapDays = prevActive ? Math.round((reportDate - prevActive) / (24 * 60 * 60 * 1000)) : null;
+    const isComeback = gapDays != null && gapDays >= 3;
 
     // Update streak logic
     await updateStreakAfterReport(userId, reportDate);
@@ -158,21 +173,83 @@ export const createStudyReport = async (req, res) => {
     try {
       const user = await User.findById(userId);
       if (user) {
-        user.points = (user.points || 0) + 20; // reward for report
+        const base = 20;
+        const bonus = isComeback ? 20 : 0; // 2× welcome-back reward for returning after a break
+        user.points = (user.points || 0) + base + bonus;
         await user.save();
-        await Notification.create({ userId: user._id, type: 'points', title: 'Points earned', message: 'You earned 20 points for submitting a study report.' });
-        if (io) io.to(`student_${userId}`).emit('points-updated', { userId, points: user.points });
+        const msg = isComeback
+          ? `Welcome back! You earned ${base + bonus} points (2× comeback bonus) for getting back on track.`
+          : 'You earned 20 points for submitting a study report.';
+        await Notification.create({ userId: user._id, type: isComeback ? 'comeback' : 'points', title: isComeback ? 'Welcome back! 🎉' : 'Points earned', message: msg });
+        if (io) io.to(`student_${userId}`).emit('points-updated', { userId, points: user.points, comeback: isComeback });
       }
     } catch (e) {
       console.error('award points after report error:', e);
     }
 
-    res.status(201).json({ success: true, report });
+    res.status(201).json({ success: true, report, comeback: isComeback });
   } catch (err) {
     if (err.code === 11000) {
       return res.status(400).json({ error: true, message: 'A study report already exists for this date.' });
     }
     console.error('createStudyReport error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// ─── PATCH /api/student/study-report/:reportId ─────────────
+// Edit an existing report (the create path rejects duplicate dates, so editing
+// needs its own endpoint). Scoped strictly to the owner.
+export const updateStudyReport = async (req, res) => {
+  try {
+    const { reportId } = req.params;
+    if (!/^[a-f\d]{24}$/i.test(String(reportId || ''))) {
+      return res.status(400).json({ error: true, message: 'Invalid report id.' });
+    }
+    const report = await StudyReport.findById(reportId);
+    if (!report) return res.status(404).json({ error: true, message: 'Report not found.' });
+    if (!report.userId.equals(req.user._id)) return res.status(403).json({ error: true, message: 'Forbidden.' });
+
+    const { subject, topic, studyHours, pyqsSolved, mockTestScore, accuracy, difficulties, mood, tomorrowPlan } = req.body;
+    const clampPct = (v) => (v === undefined || v === null || v === '') ? null : Math.min(100, Math.max(0, Number(v)));
+    if (subject !== undefined) report.subject = subject;
+    if (topic !== undefined) report.topic = topic;
+    if (studyHours !== undefined) report.studyHours = Math.max(0, Number(studyHours));
+    if (pyqsSolved !== undefined) report.pyqsSolved = Math.max(0, Number(pyqsSolved));
+    if (mockTestScore !== undefined) report.mockTestScore = clampPct(mockTestScore);
+    if (accuracy !== undefined) report.accuracy = clampPct(accuracy);
+    if (difficulties !== undefined) report.difficulties = difficulties || '';
+    if (mood !== undefined) report.mood = mood || '';
+    if (tomorrowPlan !== undefined) report.tomorrowPlan = tomorrowPlan || '';
+    await report.save();
+
+    // An edit doesn't change which days were active, so streak/points are untouched.
+    const io = req.app.get('io');
+    if (io) io.emit('progress-updated', { userId: req.user._id, report });
+    res.json({ success: true, report });
+  } catch (err) {
+    console.error('updateStudyReport error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// ─── DELETE /api/student/study-report/:reportId ────────────
+export const deleteStudyReport = async (req, res) => {
+  try {
+    const { reportId } = req.params;
+    if (!/^[a-f\d]{24}$/i.test(String(reportId || ''))) {
+      return res.status(400).json({ error: true, message: 'Invalid report id.' });
+    }
+    const report = await StudyReport.findById(reportId);
+    if (!report) return res.status(404).json({ error: true, message: 'Report not found.' });
+    if (!report.userId.equals(req.user._id)) return res.status(403).json({ error: true, message: 'Forbidden.' });
+    await report.deleteOne();
+    // Streak self-heals on the next streak fetch (computeStreak re-reads history).
+    const io = req.app.get('io');
+    if (io) io.emit('progress-updated', { userId: req.user._id });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('deleteStudyReport error:', err);
     res.status(500).json({ error: true, message: 'Server error.' });
   }
 };
@@ -416,60 +493,55 @@ export const updateDailyTasks = async (req, res) => {
 };
 
 // ─── Streak Logic ──────────────────────────────────────────
+
+// Count consecutive days (ending today, or yesterday if today has no report yet)
+// that have a study report. Computed straight from report history, so it is
+// always correct regardless of when the incremental counter last ran or whether
+// the report was created under older logic.
+async function computeStreak(userId) {
+  const reports = await StudyReport.find({ userId }).select('date').lean();
+  if (!reports.length) return 0;
+
+  const DAY = 24 * 60 * 60 * 1000;
+  const daySet = new Set(reports.map(r => startOfDay(r.date).getTime()));
+  const today = startOfDay(new Date()).getTime();
+
+  let cursor;
+  if (daySet.has(today)) cursor = today;
+  else if (daySet.has(today - DAY)) cursor = today - DAY; // grace: keep streak alive until end of today
+  else return 0;
+
+  let streak = 0;
+  while (daySet.has(cursor)) {
+    streak += 1;
+    cursor -= DAY;
+  }
+  return streak;
+}
+
+function awardStreakBadges(user) {
+  const streakMilestones = [
+    { threshold: 7, name: '7-Day Warrior' },
+    { threshold: 14, name: '14-Day Champion' },
+    { threshold: 30, name: '30-Day Legend' },
+    { threshold: 60, name: '60-Day Diamond' },
+    { threshold: 100, name: '100-Day Master' }
+  ];
+  for (const m of streakMilestones) {
+    if (user.streak >= m.threshold && !user.badges.some(b => b.name === m.name)) {
+      user.badges.push({ name: m.name, earnedDate: new Date() });
+    }
+  }
+}
+
 async function updateStreakAfterReport(userId, date) {
   try {
     const user = await User.findById(userId);
     if (!user) return;
-
-    const today = startOfDay(date);
-    const yesterday = new Date(today);
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-
-    // Check if report exists AND all daily tasks are completed
-    const [report, dailyTask] = await Promise.all([
-      StudyReport.findOne({ userId, date: today }),
-      DailyTask.findOne({ userId, date: today })
-    ]);
-
-    const hasReport = !!report;
-    const allTasksDone = dailyTask ? dailyTask.tasks.every(t => t.completed) : false;
-
-    if (hasReport && allTasksDone) {
-      if (user.lastActiveDate) {
-        const lastActive = startOfDay(user.lastActiveDate);
-        const diffDays = Math.round((today - lastActive) / (1000 * 60 * 60 * 24));
-        if (diffDays === 1) {
-          user.streak += 1;
-        } else if (diffDays === 0) {
-          // Same day, no change
-        } else {
-          user.streak = 1; // Reset, start fresh
-        }
-      } else {
-        user.streak = 1;
-      }
-      user.lastActiveDate = today;
-
-      // Award badges
-      const streakMilestones = [
-        { threshold: 7, name: '🔥 7-Day Warrior' },
-        { threshold: 14, name: '⚡ 14-Day Champion' },
-        { threshold: 30, name: '🏆 30-Day Legend' },
-        { threshold: 60, name: '💎 60-Day Diamond' },
-        { threshold: 100, name: '👑 100-Day Master' }
-      ];
-
-      for (const milestone of streakMilestones) {
-        if (user.streak >= milestone.threshold) {
-          const alreadyHas = user.badges.some(b => b.name === milestone.name);
-          if (!alreadyHas) {
-            user.badges.push({ name: milestone.name, earnedDate: new Date() });
-          }
-        }
-      }
-
-      await user.save();
-    }
+    user.streak = await computeStreak(userId);
+    user.lastActiveDate = startOfDay(date);
+    awardStreakBadges(user);
+    await user.save();
   } catch (err) {
     console.error('updateStreakAfterReport error:', err);
   }
@@ -481,9 +553,17 @@ export const getStreak = async (req, res) => {
     const user = await User.findById(req.params.userId).select('streak badges lastActiveDate');
     if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
 
+    // Recompute from report history so a stale/missed counter self-heals.
+    const computed = await computeStreak(req.params.userId);
+    if (computed !== user.streak) {
+      user.streak = computed;
+      awardStreakBadges(user);
+      await user.save();
+    }
+
     res.json({
       success: true,
-      streak: user.streak,
+      streak: computed,
       badges: user.badges,
       lastActiveDate: user.lastActiveDate
     });
@@ -499,13 +579,21 @@ export const getRewards = async (req, res) => {
     const user = await User.findById(req.params.userId).select('streak badges consistencyScore points streakFreezeTokens');
     if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
 
+    // Keep the rewards view in sync with the self-healing streak computation.
+    const computed = await computeStreak(req.params.userId);
+    if (computed !== user.streak) {
+      user.streak = computed;
+      awardStreakBadges(user);
+      await user.save();
+    }
+
     const milestones = [7, 14, 30, 60, 100];
-    const nextMilestone = milestones.find(m => m > user.streak) || null;
-    const daysToNext = nextMilestone ? nextMilestone - user.streak : 0;
+    const nextMilestone = milestones.find(m => m > computed) || null;
+    const daysToNext = nextMilestone ? nextMilestone - computed : 0;
 
     res.json({
       success: true,
-      streak: user.streak,
+      streak: computed,
       badges: user.badges,
       consistencyScore: user.consistencyScore,
       points: user.points || 0,
@@ -566,8 +654,40 @@ export const markTimetableComplete = async (req, res) => {
 // GET /api/student/journey/:userId
 export const getJourney = async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).select('journeySteps');
+    const userId = req.params.userId;
+    const user = await User.findById(userId).select('journeySteps status');
     if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
+
+    // ── Auto-track the journey from real activity ──
+    // A step completes when its milestone is met OR the mentor marked it manually
+    // (mentor completions are preserved). Persisted so the mentor sees it too.
+    const reports = await StudyReport.find({ userId }).select('pyqsSolved mockTestScore').lean();
+    const reportCount = reports.length;
+    const totalPyqs = reports.reduce((s, r) => s + (r.pyqsSolved || 0), 0);
+    const anyMock = reports.some(r => (r.mockTestScore || 0) > 0);
+    const sp = await SyllabusProgress.findOne({ userId }).select('progress').lean();
+    const completedTopics = sp ? (sp.progress || []).filter(p => p.completed).length : 0;
+
+    const milestone = {
+      'Consultation': user.status === 'approved',
+      'Goal Setting': reportCount >= 1,
+      'Concept Building': completedTopics >= 1,
+      'PYQ Practice': totalPyqs >= 50,
+      'Mock Tests': anyMock,
+      'Weakness Analysis': reportCount >= 10,
+      'Revision': completedTopics >= 30,
+      // 'GATE Success' stays manual — only the mentor marks it.
+    };
+
+    let changed = false;
+    user.journeySteps.forEach(step => {
+      if (!step.completed && milestone[step.name]) {
+        step.completed = true;
+        step.completedDate = step.completedDate || new Date();
+        changed = true;
+      }
+    });
+    if (changed) await user.save();
 
     const completedCount = user.journeySteps.filter(s => s.completed).length;
 

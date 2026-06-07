@@ -11,6 +11,7 @@ const querySchema = new mongoose.Schema({
     ref: 'User'
   },
   subject: String,
+  images: [{ type: String }], // compressed data: URLs of attached images
   question: {
     type: String,
     required: true

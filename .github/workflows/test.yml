@@ -1,0 +1,52 @@
+name: Backend Tests
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/test.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/test.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      JWT_SECRET: ci-test-secret-ci-test-secret-ci-test-secret-0123456789
+      MENTOR_MASTER_PASSWORD: mentor123
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Start backend (in-memory MongoDB)
+        working-directory: backend
+        run: |
+          nohup node server.js > server.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:5000/api/health | grep -q '"mongodb":"connected"'; then
+              echo "Backend ready after ${i}s"; exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend failed to become ready"; cat server.log; exit 1
+
+      - name: Run smoke tests
+        working-directory: backend
+        run: npm test
+
+      - name: Backend logs (on failure)
+        if: failure()
+        working-directory: backend
+        run: cat server.log || true

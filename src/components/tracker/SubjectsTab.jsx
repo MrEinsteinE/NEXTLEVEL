@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import api from '../../utils/api';
+import { WidgetSkeleton } from '../common/Loaders.jsx';
 
 export default function SubjectsTab() {
   const [subjects, setSubjects] = useState([]);
@@ -47,7 +48,7 @@ export default function SubjectsTab() {
     fetchSubjects();
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <WidgetSkeleton />;
 
   return (
     <div className="subjects-tab">

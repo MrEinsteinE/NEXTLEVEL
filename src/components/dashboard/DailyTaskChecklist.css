@@ -63,6 +63,7 @@
 .task-delete {
   background: transparent; color: var(--color-text-muted); border: none;
   font-size: 1.2rem; cursor: pointer; padding: 0 4px;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 .task-delete:hover { color: var(--color-danger); }
 

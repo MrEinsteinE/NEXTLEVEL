@@ -56,6 +56,11 @@ const userSchema = new mongoose.Schema({
   }],
   resetPasswordToken: String,
   resetPasswordExpire: Date,
+  // Email verification (6-digit code, hashed at rest)
+  emailVerified: { type: Boolean, default: false },
+  emailVerifyCodeHash: String,
+  emailVerifyExpire: Date,
+  emailVerifyAttempts: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
 

@@ -1,26 +1,29 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import axios from 'axios'
+import { useAuth } from '../context/AuthContext'
+import { RadioTower, Zap, Cpu } from 'lucide-react'
 import './Auth.css'
 
 function Signup() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [branch, setBranch] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const { signup } = useAuth()
 
   const branches = [
-    { id: 'ECE', label: 'ECE', full: 'Electronics & Communication', icon: '📡' },
-    { id: 'EE', label: 'EE', full: 'Electrical Engineering', icon: '⚡' },
-    { id: 'CSE', label: 'CSE', full: 'Computer Science', icon: '💻' },
+    { id: 'ECE', label: 'ECE', full: 'Electronics & Communication', Icon: RadioTower },
+    { id: 'EE', label: 'EE', full: 'Electrical Engineering', Icon: Zap },
+    { id: 'CSE', label: 'CSE', full: 'Computer Science', Icon: Cpu },
   ]
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!name || !email || !password || !branch) {
+    if (!name || !email || !password || !confirmPassword || !branch) {
       setError('Please fill in all fields and select your branch')
       return
     }
@@ -28,25 +31,28 @@ function Signup() {
       setError('Password must be at least 8 characters')
       return
     }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
 
     setLoading(true)
     setError('')
 
-    try {
-      await axios.post('/api/auth/signup', {
-        name,
-        email: email.trim().toLowerCase(),
-        password,
-        branch
-      })
+    const res = await signup({
+      name,
+      email: email.trim().toLowerCase(),
+      password,
+      branch
+    })
+    setLoading(false)
 
-      navigate('/pending-approval')
-    } catch (err) {
-      const message = err.response?.data?.message || 'Signup failed. Please try again.'
-      setError(message)
-    } finally {
-      setLoading(false)
+    if (!res.success) {
+      setError(res.error || 'Signup failed. Please try again.')
+      return
     }
+    // Account created (not logged in) — go verify the email.
+    navigate('/verify-email', { state: { email: email.trim().toLowerCase(), devCode: res.devCode } })
   }
 
   return (
@@ -93,6 +99,16 @@ function Signup() {
             </div>
 
             <div className="form-group">
+              <label>Confirm Password</label>
+              <input
+                type="password"
+                placeholder="Re-enter your password"
+                value={confirmPassword}
+                onChange={(e) => { setConfirmPassword(e.target.value); setError('') }}
+              />
+            </div>
+
+            <div className="form-group">
               <label>Select Your Branch</label>
               <div className="branch-selector">
                 {branches.map(b => (
@@ -101,7 +117,7 @@ function Signup() {
                     className={`branch-option ${branch === b.id ? 'selected' : ''}`}
                     onClick={() => { setBranch(b.id); setError('') }}
                   >
-                    <span className="branch-icon">{b.icon}</span>
+                    <span className="branch-icon"><b.Icon size={22} strokeWidth={2} /></span>
                     <strong>{b.label}</strong>
                   </div>
                 ))}

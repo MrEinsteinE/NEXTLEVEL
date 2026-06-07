@@ -32,7 +32,7 @@ export default function TrackerRowEditor({ log, idx, onSave }) {
         const sumActual = entries.reduce((s,e)=>s+(Number(e.actualHours)||0),0);
         const sumTarget = entries.reduce((s,e)=>s+(Number(e.targetHours)||0),0) || 1;
         const eff = Math.round((sumActual / sumTarget) * 100);
-        toast.success(`Today's efficiency: ${eff}% 📊`);
+        toast.success(`Today's efficiency: ${eff}%`);
       } catch (e) { /* ignore toast errors */ }
     } finally {
       setSaving(false);

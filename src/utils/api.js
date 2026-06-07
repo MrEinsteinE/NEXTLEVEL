@@ -1,5 +1,6 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { attachCsrf } from './csrf.js';
 
 // Normalize base host: strip any trailing `/api` so callers can use `/api/...` paths
 const rawUrl = import.meta.env.VITE_API_URL || '';
@@ -9,14 +10,12 @@ const baseHost = (rawUrl && String(rawUrl).trim())
   : 'https://nextlevel-backend.onrender.com';
 
 const api = axios.create({
-  baseURL: baseHost
+  baseURL: baseHost,
+  withCredentials: true // send the httpOnly auth cookie
 });
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-}, (err) => Promise.reject(err));
+// Attach the CSRF token header to state-changing requests.
+api.interceptors.request.use(attachCsrf);
 
 api.interceptors.response.use((res) => res, (err) => {
   if (!err.response) {

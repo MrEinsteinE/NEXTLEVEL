@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import axios from 'axios'
+import { useAuth } from '../context/AuthContext'
 import './Auth.css'
 
 function Login() {
@@ -9,14 +9,9 @@ function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
-
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user'))
-    if (user) {
-      if (user.role === 'mentor') navigate('/mentor-dashboard')
-      else navigate('/dashboard')
-    }
-  }, [navigate])
+  const { login } = useAuth()
+  // Note: redirecting an already-logged-in user away from /login is handled by
+  // <PublicRoute> in App.jsx (which reads the live auth state), so no effect here.
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -28,27 +23,20 @@ function Login() {
     setLoading(true)
     setError('')
 
-    try {
-      const response = await axios.post('/api/auth/login', {
-        email: email.trim().toLowerCase(),
-        password
-      })
+    const res = await login(email.trim().toLowerCase(), password)
+    setLoading(false)
 
-      const { token, user } = response.data
-      localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify(user))
-
-      if (user.status === 'pending') {
-        navigate('/pending-approval')
-      } else {
-        navigate('/dashboard')
+    if (!res.success) {
+      // Unverified email → send them to the verification screen.
+      if (res.code === 'EMAIL_NOT_VERIFIED') {
+        navigate('/verify-email', { state: { email: email.trim().toLowerCase() } })
+        return
       }
-    } catch (err) {
-      const message = err.response?.data?.message || 'Login failed. Please try again.'
-      setError(message)
-    } finally {
-      setLoading(false)
+      setError(res.error || 'Login failed. Please try again.')
+      return
     }
+    // Auth state is now set, so the guards will allow the destination route.
+    navigate(res.user?.status === 'pending' ? '/pending-approval' : '/dashboard')
   }
 
   return (

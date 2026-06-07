@@ -1,27 +1,29 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts'
+import { BarChart3, ChevronDown, Check } from 'lucide-react'
 import { getSyllabus } from '../../data/syllabus.js'
 import './ProgressVisualization.css'
+import { WidgetSkeleton } from '../common/Loaders.jsx'
 
 function ProgressVisualization({ branch, fullView, userKey }) {
   const [view, setView] = useState('overall') // overall, high, medium
+  const [ddOpen, setDdOpen] = useState(false)
   const [savedProgress, setSavedProgress] = useState({})
   const [loading, setLoading] = useState(true)
 
   const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const token = localStorage.getItem('token')
 
   useEffect(() => {
-    if (user._id && token) fetchProgress()
+    if (user._id) fetchProgress()
   }, [])
 
   const fetchProgress = async () => {
     try {
-      const res = await axios.get(`/api/student/syllabus-progress/${user._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      setSavedProgress(res.data || {})
+      const res = await axios.get(`/api/student/syllabus-progress/${user._id}`)
+      const map = {}
+      ;(res.data.progress || []).forEach(p => { map[`${p.subjectIndex}_${p.topicIndex}_${p.subtopicIndex}`] = p.completed })
+      setSavedProgress(map)
     } catch (err) {
       console.error('Failed to fetch syllabus progress:', err)
     } finally {
@@ -29,41 +31,30 @@ function ProgressVisualization({ branch, fullView, userKey }) {
     }
   }
   
-  // Dynamic mock calculation for visualization
-  // Calculate real data from localStorage
+  // Progress is keyed by sectionIdx_subjectIdx_topicIdx — the same scheme the
+  // Syllabus Tracker uses when it saves a toggle (so both views agree).
+  const includeByView = (section) => {
+    if (view === 'high') return section.priority === 'high' || section.priority === 'foundation'
+    if (view === 'medium') return section.priority === 'medium'
+    return true // 'overall'
+  }
+
   const getProgressData = () => {
     const syllabus = getSyllabus(branch)
-    
     let totalTopics = 0
     let completedTopics = 0
-
-    // Filter by view (priority)
-    const filteredSyllabus = syllabus.filter(section => {
-      if (view === 'overall') return true
-      // Include 'foundation' in High Priority as it's crucial
-      if (view === 'high') return section.priority === 'high' || section.priority === 'foundation'
-      if (view === 'medium') return section.priority === 'medium'
-      return true
-    })
-
-    filteredSyllabus.forEach(section => {
-      section.subjects.forEach(sub => {
-        sub.topics.forEach(topic => {
+    syllabus.forEach((section, sIdx) => {
+      if (!includeByView(section)) return
+      section.subjects.forEach((sub, subIdx) => {
+        sub.topics.forEach((topic, tIdx) => {
           totalTopics++
-          const topicId = `${sub.id}-${topic.name}`
-          if (savedProgress[topicId]) {
-            completedTopics++
-          }
+          if (savedProgress[`${sIdx}_${subIdx}_${tIdx}`]) completedTopics++
         })
       })
     })
-
     const notStartedTopics = totalTopics - completedTopics
-    
-    // Convert to percentages for the pie chart
     const completedPct = totalTopics === 0 ? 0 : Math.round((completedTopics / totalTopics) * 100)
     const notStartedPct = totalTopics === 0 ? 100 : Math.round((notStartedTopics / totalTopics) * 100)
-    
     return [
       { name: 'Completed', value: completedPct, color: 'var(--color-success)' },
       { name: 'Not Started', value: notStartedPct, color: '#e2e8f0' }
@@ -72,35 +63,17 @@ function ProgressVisualization({ branch, fullView, userKey }) {
 
   const getSubjectData = () => {
     const syllabus = getSyllabus(branch)
-    
-    let subjectStats = []
-    
-    const priorityWeights = {
-      'foundation': 4,
-      'high': 3,
-      'medium': 2,
-      'supporting': 1
-    }
-
-    // Filter by view (priority)
-    const filteredSyllabus = syllabus.filter(section => {
-      if (view === 'overall') return true
-      if (view === 'high') return section.priority === 'high' || section.priority === 'foundation'
-      if (view === 'medium') return section.priority === 'medium'
-      return true
-    })
-
-    filteredSyllabus.forEach(section => {
-      section.subjects.forEach(sub => {
+    const priorityWeights = { foundation: 4, high: 3, medium: 2, supporting: 1 }
+    const subjectStats = []
+    syllabus.forEach((section, sIdx) => {
+      if (!includeByView(section)) return
+      section.subjects.forEach((sub, subIdx) => {
         let subTotal = 0
         let subCompleted = 0
-        
-        sub.topics.forEach(topic => {
+        sub.topics.forEach((topic, tIdx) => {
           subTotal++
-          const topicId = `${sub.id}-${topic.name}`
-          if (savedProgress[topicId]) subCompleted++
+          if (savedProgress[`${sIdx}_${subIdx}_${tIdx}`]) subCompleted++
         })
-
         if (subTotal > 0) {
           subjectStats.push({
             name: sub.name,
@@ -110,8 +83,6 @@ function ProgressVisualization({ branch, fullView, userKey }) {
         }
       })
     })
-
-    // Sort by priority weight DESC, then by percentage DESC, then alphabetically
     return subjectStats.sort((a, b) => {
       if (b.weight !== a.weight) return b.weight - a.weight
       if (b.pct !== a.pct) return b.pct - a.pct
@@ -122,17 +93,42 @@ function ProgressVisualization({ branch, fullView, userKey }) {
   const data = getProgressData()
   const subjectData = getSubjectData()
 
-  if (loading) return <div className={`progress-viz-widget ${fullView ? 'full' : ''}`}><p style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>Loading progress...</p></div>
+  if (loading) return <div className={`progress-viz-widget ${fullView ? 'full' : ''}`}><WidgetSkeleton /></div>
 
   return (
     <div className={`progress-viz-widget ${fullView ? 'full' : ''}`}>
       <div className="viz-header">
-        <h3>📊 {branch} Progress Analytics</h3>
-        <select value={view} onChange={e => setView(e.target.value)} className="viz-select">
-          <option value="overall">Overall</option>
-          <option value="high">High Priority</option>
-          <option value="medium">Medium Priority</option>
-        </select>
+        <h3 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><BarChart3 size={18} /> {branch} Progress Analytics</h3>
+        <div className="viz-dropdown">
+          <button
+            type="button"
+            className="viz-dropdown-trigger"
+            onClick={() => setDdOpen(o => !o)}
+            onBlur={() => setTimeout(() => setDdOpen(false), 120)}
+            aria-haspopup="listbox"
+            aria-expanded={ddOpen}
+          >
+            {{ overall: 'Overall', high: 'High Priority', medium: 'Medium Priority' }[view]}
+            <ChevronDown size={15} strokeWidth={2.2} className={`viz-dd-chevron ${ddOpen ? 'open' : ''}`} />
+          </button>
+          {ddOpen && (
+            <div className="viz-dropdown-menu" role="listbox">
+              {[['overall', 'Overall'], ['high', 'High Priority'], ['medium', 'Medium Priority']].map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  role="option"
+                  aria-selected={view === val}
+                  className={`viz-dd-option ${view === val ? 'active' : ''}`}
+                  onMouseDown={(e) => { e.preventDefault(); setView(val); setDdOpen(false) }}
+                >
+                  {label}
+                  {view === val && <Check size={14} strokeWidth={2.5} />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="viz-content">

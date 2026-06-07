@@ -51,6 +51,17 @@
   --shadow-card: 0 2px 8px rgba(0,0,0,0.3);
 }
 
+/* Global floating theme toggle — visible on every page */
+.app-theme-toggle {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 1200;
+}
+.app-theme-toggle button {
+  box-shadow: var(--shadow-md);
+}
+
 /* Reset */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { height: 100%; }
@@ -156,14 +167,15 @@ body {
     font-size: 18px;
   }
 
-  /* Make modal overlays act like bottom-sheets on mobile */
-  .modal-overlay, .report-modal, .student-modal-overlay, .modal-card, .modal-content, .student-modal {
+  /* Make modal overlays act like bottom-sheets on mobile.
+     NOTE: the student-detail modal (.student-modal) is intentionally excluded —
+     it uses a centered, scrollable layout (see MentorDashboard.jsx) on all sizes. */
+  .modal-overlay, .report-modal, .modal-card, .modal-content {
     padding: 0;
   }
 
   .modal-overlay > *,
   .report-modal > .modal-content,
-  .student-modal-overlay > .student-modal,
   .modal-overlay .modal-card {
     width: 100%;
     height: calc(100% - 48px);
@@ -189,3 +201,291 @@ body {
   button, .btn, .nav-link, .category-btn, .action-btn, .m-action-btn, .prep-edit-btn, .prep-save-btn { min-width:44px; min-height:44px; padding:8px; }
 }
 
+
+/* ============================================================
+   DESIGN SYSTEM — RESTORED TOKENS & UTILITIES
+   The page stylesheets reference a modern token set (spacing,
+   font-size, gradient, shadow, radius scales + glass/gradient
+   utilities) that was never defined. Defining them here repairs
+   layout, typography, gradients and effects app-wide.
+   (Purely additive — appended :root blocks merge with the above.)
+   ============================================================ */
+:root {
+  /* Spacing scale (4px base) */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
+
+  /* Font-size scale */
+  --fs-xs: 0.75rem;  --fs-sm: 0.875rem; --fs-base: 1rem;   --fs-lg: 1.125rem;
+  --fs-xl: 1.25rem;  --fs-2xl: 1.5rem;  --fs-3xl: 1.875rem;
+  --font-size-xs: 0.75rem; --font-size-sm: 0.875rem; --font-size-base: 1rem;
+  --font-size-xl: 1.25rem;
+
+  /* Extended radius scale */
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+
+  /* Extended shadow scale */
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-xl: 0 24px 48px -12px rgba(108, 99, 255, 0.28);
+  --shadow-glow-primary: 0 0 0 4px rgba(108, 99, 255, 0.18);
+
+  /* Color aliases & additions */
+  --color-bg-primary: var(--color-bg);
+  --color-bg-input: #F1F0FB;
+  --color-primary-50: #F3F2FF;
+  --color-secondary: #A855F7;
+  --color-accent-primary: var(--color-primary);
+  --color-accent-primary-hover: var(--color-primary-dark);
+  --color-accent-success: var(--color-success);
+  --color-accent-danger: var(--color-danger);
+  --color-text-light: #9CA3AF;
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #6C63FF 0%, #A855F7 100%);
+  --gradient-hero: linear-gradient(135deg, #6C63FF 0%, #4B44CC 55%, #1E1B4B 100%);
+  --gradient-success: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+  --gradient-warm: linear-gradient(135deg, #FF6B35 0%, #F59E0B 100%);
+  --gradient-mesh:
+    radial-gradient(at 18% 18%, rgba(108, 99, 255, 0.20) 0px, transparent 50%),
+    radial-gradient(at 82% 12%, rgba(255, 107, 53, 0.14) 0px, transparent 50%),
+    radial-gradient(at 78% 84%, rgba(168, 85, 247, 0.18) 0px, transparent 50%),
+    radial-gradient(at 12% 88%, rgba(34, 197, 94, 0.10) 0px, transparent 50%);
+}
+
+[data-theme="dark"] {
+  --color-bg-primary: #0F0E1A;
+  --color-bg-input: #232140;
+  --color-primary-50: #232140;
+  --color-text-light: #6B7280;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 24px 48px -12px rgba(0, 0, 0, 0.55);
+  --gradient-mesh:
+    radial-gradient(at 18% 18%, rgba(108, 99, 255, 0.22) 0px, transparent 50%),
+    radial-gradient(at 82% 12%, rgba(255, 107, 53, 0.12) 0px, transparent 50%),
+    radial-gradient(at 78% 84%, rgba(168, 85, 247, 0.18) 0px, transparent 50%);
+}
+
+/* ---- Utility classes referenced across pages ---- */
+.gradient-text {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  display: inline-block;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+}
+[data-theme="dark"] .glass {
+  background: rgba(26, 24, 48, 0.55);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.animate-fade-in { animation: fadeSlideUp 500ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.animate-slide-up { animation: fadeSlideUp 500ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.animate-slide-in-right { animation: slideInRight 400ms ease both; }
+
+/* ── Skeleton loaders ── */
+.sk { display:inline-block; background:#e9edf5; position:relative; overflow:hidden; vertical-align:middle; }
+.sk::after { content:''; position:absolute; inset:0; transform:translateX(-100%); background:linear-gradient(90deg, rgba(255,255,255,0) 0, rgba(255,255,255,.65) 50%, rgba(255,255,255,0) 100%); animation: skShimmer 1.3s infinite; }
+@keyframes skShimmer { 100% { transform:translateX(100%); } }
+[data-theme="dark"] .sk { background:#26263a; }
+[data-theme="dark"] .sk::after { background:linear-gradient(90deg, rgba(255,255,255,0) 0, rgba(255,255,255,.08) 50%, rgba(255,255,255,0) 100%); }
+.sk-widget { display:flex; flex-direction:column; gap:14px; padding:6px 0; }
+.sk-row { display:flex; gap:14px; align-items:flex-start; }
+.sk-col { display:flex; flex-direction:column; gap:10px; flex:1; }
+
+/* ── Empty states ── */
+.empty-state { display:flex; flex-direction:column; align-items:center; text-align:center; padding:28px 18px; gap:6px; }
+.empty-state-icon { width:56px; height:56px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--color-primary-light); color:var(--color-primary); margin-bottom:4px; }
+.empty-state-title { font-weight:800; font-size:.98rem; color:var(--color-text-primary); }
+.empty-state-msg { font-size:.86rem; color:var(--color-text-muted); line-height:1.6; margin:0; max-width:340px; }
+
+/* ============================================================
+   ORPHANED COMPONENT CLASSES — styling safety net
+   These class names are used in JSX but had no CSS anywhere,
+   so they rendered as unstyled text. Polished defaults below.
+   ============================================================ */
+
+/* Auth error / success banners */
+.auth-error {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: center;
+}
+.auth-success {
+  background: var(--color-success-light);
+  color: var(--color-success);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Metric cards (mentor dashboard) */
+.metric-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--sp-5) var(--sp-6);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.metric-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+.metric-card::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+  background: var(--gradient-primary);
+}
+.metric-card.gradient-blue::before  { background: linear-gradient(180deg,#6C63FF,#4B44CC); }
+.metric-card.gradient-green::before { background: var(--gradient-success); }
+.metric-card.gradient-orange::before,
+.metric-card.gradient-warm::before  { background: var(--gradient-warm); }
+.metric-card.gradient-red::before   { background: linear-gradient(180deg,#EF4444,#B91C1C); }
+.metric-icon {
+  width: 52px; height: 52px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; border-radius: var(--radius-lg);
+  background: var(--color-primary-light);
+}
+.metric-content { display: flex; flex-direction: column; }
+.metric-value { font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 800; color: var(--color-text-primary); line-height: 1.1; }
+.metric-label { font-size: var(--fs-sm); color: var(--color-text-secondary); font-weight: 600; }
+.metric-trend { margin-left: auto; font-size: var(--fs-xs); font-weight: 700; color: var(--color-text-muted); align-self: flex-start; }
+.metric-trend.positive { color: var(--color-success); }
+.metric-trend.negative { color: var(--color-danger); }
+
+/* Modal stat blocks (student detail modal) */
+.modal-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--sp-3); }
+.modal-stat {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-4);
+}
+.ms-num { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 800; color: var(--color-primary); }
+.ms-label { font-size: var(--fs-xs); color: var(--color-text-secondary); font-weight: 600; text-align: center; }
+.modal-section { margin-top: var(--sp-5); }
+.modal-section h4 { font-size: var(--fs-base); font-weight: 700; margin-bottom: var(--sp-2); color: var(--color-text-primary); }
+.modal-muted { color: var(--color-text-muted); font-size: var(--fs-sm); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); margin-bottom: var(--sp-4); }
+
+/* Mentor mini stat cards */
+.mentor-stat-card {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-4) var(--sp-5);
+  box-shadow: var(--shadow-card);
+}
+.m-stat-num { font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 800; color: var(--color-primary); }
+.m-stat-label { font-size: var(--fs-xs); color: var(--color-text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* Chart cards */
+.chart-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--sp-6);
+  box-shadow: var(--shadow-card);
+}
+.chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-4); }
+.chart-header h3 { font-size: var(--fs-lg); font-weight: 700; color: var(--color-text-primary); }
+
+/* Countdown values */
+.countdown-value {
+  display: inline-block; min-width: 2ch; text-align: center;
+  font-family: var(--font-display); font-weight: 800; color: var(--color-primary);
+}
+
+/* Small helpers */
+.text-sm { font-size: var(--fs-sm); }
+.positive { color: var(--color-success); }
+.negative { color: var(--color-danger); }
+
+/* Route-loading spinner (lazy route fallback) */
+.route-spinner {
+  width: 38px; height: 38px;
+  border: 3px solid var(--color-primary-light);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: routeSpin 0.7s linear infinite;
+}
+@keyframes routeSpin { to { transform: rotate(360deg); } }
+
+/* App-level error / chunk-recovery screen */
+.app-error-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--sp-6); background-image: var(--gradient-mesh); }
+.app-error-card { max-width: 440px; width: 100%; text-align: center; padding: var(--sp-10) var(--sp-8); box-shadow: var(--shadow-lg); }
+.app-error-icon { font-size: 3rem; margin-bottom: var(--sp-4); }
+.app-error-card h2 { font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 800; color: var(--color-text-primary); margin-bottom: var(--sp-3); }
+.app-error-card p { color: var(--color-text-secondary); font-size: var(--fs-sm); line-height: 1.6; margin-bottom: var(--sp-6); }
+
+/* ============================================================
+   SIMPLE-PAGE LAYOUT — consistent padded container + styled
+   form controls/headings/buttons for the lighter pages.
+   Full-bleed layouts (dashboards, auth) are excluded via :has().
+   ============================================================ */
+.route-view:not(:has(.dashboard-layout,.mentor-dash-page,.auth-page,.pending-page)) {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 32px 28px 72px;
+}
+.route-view:not(:has(.dashboard-layout,.mentor-dash-page,.auth-page,.pending-page)) h1 {
+  font-family: var(--font-display); font-size: var(--fs-3xl); font-weight: 800;
+  letter-spacing: -0.02em; color: var(--color-text-primary); margin-bottom: var(--sp-2);
+}
+.route-view:not(:has(.dashboard-layout,.mentor-dash-page,.auth-page,.pending-page)) h2 {
+  font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 700;
+  color: var(--color-text-primary); margin-bottom: var(--sp-4);
+}
+.route-view:not(:has(.dashboard-layout,.mentor-dash-page,.auth-page,.pending-page)) h3 {
+  font-size: var(--fs-lg); font-weight: 700; color: var(--color-text-primary); margin-bottom: var(--sp-3);
+}
+.route-view:not(:has(.dashboard-layout,.mentor-dash-page,.auth-page,.pending-page)) :is(input:not([type=checkbox]):not([type=radio]),select,textarea) {
+  padding: 10px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  background: var(--color-bg-card); color: var(--color-text-primary);
+  font-size: var(--fs-sm); font-family: var(--font-sans);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.route-view:not(:has(.dashboard-layout,.mentor-dash-page,.auth-page,.pending-page)) :is(input:not([type=checkbox]):not([type=radio]),select,textarea):focus {
+  outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 4px var(--color-primary-light);
+}
+.route-view:not(:has(.dashboard-layout,.mentor-dash-page,.auth-page,.pending-page)) button:not([class]) {
+  padding: 10px 18px; border: none; border-radius: var(--radius-md);
+  background: var(--color-primary); color: #fff; font-weight: 600; font-size: var(--fs-sm);
+  font-family: var(--font-sans); cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+.route-view:not(:has(.dashboard-layout,.mentor-dash-page,.auth-page,.pending-page)) button:not([class]):hover {
+  background: var(--color-primary-dark); transform: translateY(-1px);
+}
+.route-view:not(:has(.dashboard-layout,.mentor-dash-page,.auth-page,.pending-page)) button:not([class]):disabled {
+  opacity: .55; cursor: not-allowed; transform: none;
+}
+
+/* Ensure emoji icons always render, regardless of OS/browser, by appending
+   the platform emoji fonts to the font stack (Inter/Jakarta lack emoji glyphs). */
+:root {
+  --font-sans: 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+}

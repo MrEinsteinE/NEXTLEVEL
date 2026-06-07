@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { TrendingUp } from 'lucide-react';
 import { useSocket } from '../../hooks/useSocket.js';
 import { Line } from 'react-chartjs-2';
 import {
@@ -30,15 +31,12 @@ function WeeklyStudyChart() {
   const socket = useSocket();
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const token = localStorage.getItem('token');
 
   const fetchReports = async () => {
-    if (!user._id || !token) return;
+    if (!user._id) return;
     try {
       // Get last 7 days roughly by getting the last 30 reports
-      const res = await axios.get(`/api/student/study-reports/${user._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await axios.get(`/api/student/study-reports/${user._id}`);
       setReports(res.data.reports || []);
     } catch (err) {
       console.error(err);
@@ -47,7 +45,7 @@ function WeeklyStudyChart() {
 
   useEffect(() => {
     fetchReports();
-  }, [user._id, token]);
+  }, [user._id]);
 
   useEffect(() => {
     if (!socket) return;
@@ -124,8 +122,8 @@ function WeeklyStudyChart() {
 
   return (
     <div className="weekly-chart-container" style={{ width: '100%', height: '240px' }}>
-      <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#1E293B', marginBottom: '10px' }}>
-        📈 Last 7 Days Overview
+      <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#1E293B', marginBottom: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+        <TrendingUp size={18} strokeWidth={2} /> Last 7 Days Overview
       </h3>
       <div style={{ height: '200px' }}>
         <Line data={data} options={options} />

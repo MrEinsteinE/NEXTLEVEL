@@ -1,18 +1,25 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import {
+  Map, Handshake, Target, BookOpen, CalendarDays, Dumbbell,
+  RefreshCw, Video, Eye, Star, Check, CheckCircle2
+} from 'lucide-react'
 import { useSocket } from '../../hooks/useSocket.js'
 
 const API = import.meta.env.VITE_API_URL || ''
 
+// Aligned with the backend journey step names (in order):
+// Consultation, Goal Setting, Concept Building, PYQ Practice,
+// Mock Tests, Weakness Analysis, Revision, GATE Success
 const STEP_CONFIG = [
-  { icon: '🤝', color: '#6366F1' },
-  { icon: '🎯', color: '#F97316' },
-  { icon: '📚', color: '#10B981' },
-  { icon: '📅', color: '#3B82F6' },
-  { icon: '💪', color: '#EF4444' },
-  { icon: '🔄', color: '#8B5CF6' },
-  { icon: '📹', color: '#F59E0B' },
-  { icon: '👁️', color: '#0F172A' }
+  { Icon: Handshake, color: '#6366F1', desc: 'One-on-one call to understand your goals & background' },
+  { Icon: Target, color: '#F97316', desc: 'Lock your target rank, branch & timeline' },
+  { Icon: BookOpen, color: '#10B981', desc: 'Build strong fundamentals, subject by subject' },
+  { Icon: CalendarDays, color: '#3B82F6', desc: 'Solve previous-year questions consistently' },
+  { Icon: Dumbbell, color: '#EF4444', desc: 'Full-length mock tests under exam conditions' },
+  { Icon: RefreshCw, color: '#8B5CF6', desc: 'Analyse weak areas and fix them' },
+  { Icon: Video, color: '#F59E0B', desc: 'Structured revision of the full syllabus' },
+  { Icon: Eye, color: '#0F172A', desc: 'Continuous monitoring all the way to GATE success' }
 ]
 
 export default function MentorshipFlow() {
@@ -39,11 +46,16 @@ export default function MentorshipFlow() {
   const fetchSteps = async () => {
     const user = JSON.parse(localStorage.getItem('user') || '{}')
     try {
-      const token = localStorage.getItem('token')
-      const res = await axios.get(`${API}/api/student/journey/${user._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      setSteps(res.data.journeySteps || [])
+      const res = await axios.get(`${API}/api/student/journey/${user._id}`)
+      // Backend stores steps as { name, completed, completedDate }.
+      // Normalise to the shape this widget renders ({ stepNumber, title, completedAt }).
+      const mapped = (res.data.journeySteps || []).map((s, i) => ({
+        stepNumber: s.stepNumber || i + 1,
+        title: s.title || s.name || `Step ${i + 1}`,
+        completed: !!s.completed,
+        completedAt: s.completedAt || s.completedDate || null
+      }))
+      setSteps(mapped)
     } catch (err) {
       // Fallback to defaults if API fails
       setSteps([
@@ -69,7 +81,9 @@ export default function MentorshipFlow() {
     <div className="flow-widget">
       <div className="flow-header">
         <div>
-          <h3>🗺️ Your Mentorship Journey</h3>
+          <h3 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <Map size={18} strokeWidth={2} /> Your Mentorship Journey
+          </h3>
           <p>8-Step path to GATE success with Bhima Sankar Sir</p>
         </div>
         <div className="flow-progress-badge">
@@ -92,7 +106,8 @@ export default function MentorshipFlow() {
       ) : (
         <div className="flow-steps">
           {steps.map((step, idx) => {
-            const cfg = STEP_CONFIG[idx] || { icon: '⭐', color: '#64748B' }
+            const cfg = STEP_CONFIG[idx] || { Icon: Star, color: '#64748B' }
+            const StepIcon = cfg.Icon
             const isActive = idx === activeStep
             const isDone = step.completed
 
@@ -102,15 +117,16 @@ export default function MentorshipFlow() {
                 {idx < steps.length - 1 && (
                   <div className={`flow-connector ${isDone ? 'done' : ''}`} />
                 )}
-                <div className="step-icon-wrap" style={{ background: isDone ? cfg.color : '#E2E8F0', borderColor: isActive ? cfg.color : 'transparent' }}>
-                  {isDone ? '✓' : cfg.icon}
+                <div className="step-icon-wrap" style={{ background: isDone ? cfg.color : '#E2E8F0', borderColor: isActive ? cfg.color : 'transparent', color: isDone ? '#fff' : cfg.color }}>
+                  {isDone ? <Check size={18} strokeWidth={3} /> : <StepIcon size={17} strokeWidth={2} />}
                 </div>
                 <div className="step-info">
                   <div className="step-num">Step {step.stepNumber}</div>
                   <div className="step-title">{step.title}</div>
+                  {cfg.desc && <div className="step-desc">{cfg.desc}</div>}
                   {isDone && step.completedAt && (
-                    <div className="step-date">
-                      ✅ Completed {new Date(step.completedAt).toLocaleDateString('en-IN')}
+                    <div className="step-date" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <CheckCircle2 size={14} strokeWidth={2} /> Completed {new Date(step.completedAt).toLocaleDateString('en-IN')}
                     </div>
                   )}
                   {isActive && !isDone && (
@@ -146,6 +162,14 @@ export default function MentorshipFlow() {
         .flow-step.active .step-title { color:#F97316; }
         .step-date { font-size:0.75rem; color:#10B981; font-weight:600; margin-top:2px; }
         .step-current-label { font-size:0.75rem; color:#F97316; font-weight:700; margin-top:2px; }
+        .step-desc { font-size:0.78rem; color:#64748B; line-height:1.4; margin-top:2px; }
+        [data-theme="dark"] .flow-header h3 { color:#F1F0FF; }
+        [data-theme="dark"] .flow-header p { color:#9CA3AF; }
+        [data-theme="dark"] .step-title { color:#E5E4F0; }
+        [data-theme="dark"] .step-desc { color:#9CA3AF; }
+        [data-theme="dark"] .flow-connector { background:#3A3A52; }
+        [data-theme="dark"] .flow-progress-bar { background:#2A2A3F; }
+        [data-theme="dark"] .step-icon-wrap { box-shadow:0 0 0 1px rgba(255,255,255,.06); }
       `}</style>
     </div>
   )

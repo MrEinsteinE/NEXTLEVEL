@@ -2,11 +2,28 @@ import SuccessStory from '../models/SuccessStory.js';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
 
+// Allowlist for story media: https only, and only YouTube links or direct images.
+// Blocks data:/javascript:/blob:/arbitrary origins that would otherwise be framed
+// in the story modal (stored-XSS / frame-injection).
+const isAllowedMediaUrl = (url) => {
+  try {
+    const u = new URL(String(url));
+    if (u.protocol !== 'https:') return false;
+    const host = u.hostname.replace(/^www\./, '');
+    const ytHosts = ['youtube.com', 'youtu.be', 'youtube-nocookie.com', 'm.youtube.com'];
+    if (ytHosts.includes(host)) return true;
+    return /\.(png|jpe?g|gif|webp)$/i.test(u.pathname);
+  } catch { return false; }
+};
+
 // Create a new story (student)
 export const createStory = async (req, res) => {
   try {
     const { title, content, mediaUrl } = req.body;
     if (!title || !content) return res.status(400).json({ error: true, message: 'Title and content are required.' });
+    if (mediaUrl && !isAllowedMediaUrl(mediaUrl)) {
+      return res.status(400).json({ error: true, message: 'Media URL must be an https YouTube link or image URL.' });
+    }
 
     const story = await SuccessStory.create({
       userId: req.user._id,
@@ -48,7 +65,9 @@ export const getStories = async (req, res) => {
 // GET single story
 export const getStory = async (req, res) => {
   try {
-    const story = await SuccessStory.findById(req.params.storyId).populate('userId', 'name email');
+    const story = await SuccessStory.findById(req.params.storyId)
+      .populate('userId', 'name email')
+      .populate('comments.userId', 'name');
     if (!story) return res.status(404).json({ error: true, message: 'Story not found.' });
     res.json({ success: true, story });
   } catch (err) {
@@ -97,9 +116,16 @@ export const addComment = async (req, res) => {
     story.comments.push(comment);
     await story.save();
     const saved = story.comments[story.comments.length - 1];
+    // Return the author embedded so the UI can show the name immediately.
+    const responseComment = {
+      _id: saved._id,
+      text: saved.text,
+      createdAt: saved.createdAt,
+      userId: { _id: req.user._id, name: req.user.name }
+    };
     const io = req.app.get('io');
-    if (io) io.to(`student_${story.userId.toString()}`).emit('new-comment', { storyId: story._id, comment: saved });
-    res.status(201).json({ success: true, comment: saved });
+    if (io) io.to(`student_${story.userId.toString()}`).emit('new-comment', { storyId: story._id, comment: responseComment });
+    res.status(201).json({ success: true, comment: responseComment });
   } catch (err) {
     console.error('addComment error:', err);
     res.status(500).json({ error: true, message: 'Server error adding comment.' });

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { MessageCircle } from 'lucide-react';
 import { connectSocket, getSocket } from '../../utils/socket';
 import { useAuth } from '../../context/AuthContext';
 import './ChatWidget.css';
@@ -46,12 +47,12 @@ const ChatWidget = () => {
   const sendMessage = async () => {
     if (!text.trim() || !user) return;
     const socket = getSocket() || connectSocket(user);
-    const payload = { message: text.trim() };
-    // Optimistic UI
-    setMessages(prev => [...prev, { message: text.trim(), sender: { _id: user._id, name: user.name, role: user.role }, createdAt: new Date().toISOString() }]);
+    const msg = text.trim();
     setText('');
+    // No optimistic insert: the server echoes the saved message back to this
+    // user's room, which appends it via the 'chat-message' listener (avoids dupes).
     try {
-      socket.emit('chat-message', payload);
+      socket.emit('chat-message', { message: msg });
     } catch (e) {
       console.error('chat send error', e);
     }
@@ -62,7 +63,7 @@ const ChatWidget = () => {
   return (
     <div className={`chat-widget ${open ? 'open' : ''}`}>
       <div className="chat-toggle" onClick={() => setOpen(!open)} title="Open chat">
-        <span>💬</span>
+        <MessageCircle size={24} strokeWidth={2} />
       </div>
 
       {open && (

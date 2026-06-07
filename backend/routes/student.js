@@ -4,7 +4,7 @@ import { requireRole } from '../middleware/role.js';
 import {
   getTargets, updateTargets,
   getProgress,
-  createStudyReport, getStudyReports,
+  createStudyReport, updateStudyReport, deleteStudyReport, getStudyReports,
   getSyllabusProgress, updateSyllabusProgress,
   getDailyTasks, updateDailyTasks,
   getStreak, getRewards,
@@ -18,6 +18,24 @@ const router = Router();
 router.use(requireAuth);
 router.use(requireRole(['student']));
 
+// Block students whose account isn't approved yet from reading/writing student data.
+router.use((req, res, next) => {
+  if (req.user.status && req.user.status !== 'approved') {
+    return res.status(403).json({ error: true, message: 'Your account is awaiting mentor approval.' });
+  }
+  next();
+});
+
+// Every student route operates on the *authenticated* student's own data. The id
+// previously came from the URL (`:userId`), which was both an IDOR (a student
+// could read/write another student's data by changing the id) and a crash risk
+// (a non-ObjectId string like "student_example_com" threw a 500 on cast).
+// This pins `:userId` to the token's user, so the client-supplied value is never trusted.
+router.param('userId', (req, res, next) => {
+  req.params.userId = req.user._id.toString();
+  next();
+});
+
 // Targets
 router.get('/targets/:userId', getTargets);
 router.post('/targets/:userId', updateTargets);
@@ -27,6 +45,8 @@ router.get('/progress/:userId', getProgress);
 
 // Study Reports
 router.post('/study-report', createStudyReport);
+router.patch('/study-report/:reportId', updateStudyReport);
+router.delete('/study-report/:reportId', deleteStudyReport);
 router.get('/study-reports/:userId', getStudyReports);
 
 // Syllabus Progress
