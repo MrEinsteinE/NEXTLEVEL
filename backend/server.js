@@ -348,7 +348,13 @@ app.get('/api/health', (req, res) => {
     mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     hasMongodbUri: !!process.env.MONGODB_URI,
     lastDbError: lastDbError,
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    // Which email channel the deployed code will use (names only, no secrets) —
+    // diagnostic for "why aren't emails sending". 'none' = no provider configured.
+    email: process.env.BREVO_API_KEY ? 'brevo'
+      : process.env.RESEND_API_KEY ? 'resend'
+      : (process.env.EMAIL_USER && process.env.EMAIL_PASS) ? 'smtp' : 'none',
+    emailFromSet: !!process.env.EMAIL_FROM
   });
 });
 
