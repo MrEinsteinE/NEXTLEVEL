@@ -96,11 +96,84 @@ async function sendViaResend({ subject, html, to }) {
   }
 }
 
+// ── Gmail API (OAuth2 over HTTPS) ──────────────────────────────────────────
+// Sends through the user's OWN Gmail via the REST API (NOT SMTP, so Render's
+// SMTP block doesn't apply, and there's no provider "activation" gate). Needs
+// GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET / GMAIL_REFRESH_TOKEN; EMAIL_FROM should
+// be the same Gmail address (with an optional display name).
+let _gmailToken = null, _gmailTokenExp = 0;
+async function getGmailAccessToken() {
+  if (_gmailToken && Date.now() < _gmailTokenExp - 30000) return _gmailToken;
+  const body = new URLSearchParams({
+    client_id: process.env.GMAIL_CLIENT_ID || '',
+    client_secret: process.env.GMAIL_CLIENT_SECRET || '',
+    refresh_token: process.env.GMAIL_REFRESH_TOKEN || '',
+    grant_type: 'refresh_token'
+  });
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
+  if (!r.ok) {
+    const detail = await r.text().catch(() => '');
+    throw new Error(`Gmail token ${r.status}: ${detail.slice(0, 200)}`);
+  }
+  const j = await r.json();
+  _gmailToken = j.access_token;
+  _gmailTokenExp = Date.now() + ((j.expires_in || 3600) * 1000);
+  return _gmailToken;
+}
+// RFC 2047 encoded-word so non-ASCII (emoji) subjects render correctly.
+function encodeSubject(s) {
+  return /^[\x00-\x7F]*$/.test(s) ? s : `=?UTF-8?B?${Buffer.from(s, 'utf8').toString('base64')}?=`;
+}
+async function sendViaGmail({ subject, html, to }) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000);
+  const sender = parseFrom(process.env.EMAIL_FROM, '');
+  const recipients = (Array.isArray(to) ? to : [to]).join(', ');
+  try {
+    const token = await getGmailAccessToken();
+    const lines = [];
+    if (sender.email) lines.push(`From: ${sender.name ? `${sender.name} <${sender.email}>` : sender.email}`);
+    lines.push(`To: ${recipients}`);
+    lines.push(`Subject: ${encodeSubject(subject)}`);
+    lines.push('MIME-Version: 1.0');
+    lines.push('Content-Type: text/html; charset="UTF-8"');
+    lines.push('Content-Transfer-Encoding: base64');
+    lines.push('');
+    lines.push(Buffer.from(html, 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n'));
+    const raw = Buffer.from(lines.join('\r\n'), 'utf8').toString('base64url');
+    const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw }),
+      signal: ctrl.signal
+    });
+    if (!r.ok) {
+      const detail = await r.text().catch(() => '');
+      throw new Error(`Gmail ${r.status}: ${detail.slice(0, 300)}`);
+    }
+    _lastEmailError = null;
+    return r.json().catch(() => ({}));
+  } catch (e) {
+    _lastEmailError = { at: new Date().toISOString(), provider: 'gmail', message: String((e && e.message) || e).slice(0, 300) };
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function getTransporter() {
   if (transporter) return transporter;
 
   // Prefer an HTTPS email API when configured — works where SMTP is blocked
   // (Render). Returns a transporter-shaped object so all senders work unchanged.
+  if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN) {
+    transporter = { sendMail: (opts) => sendViaGmail(opts) };
+    return transporter;
+  }
   if (process.env.BREVO_API_KEY) {
     transporter = { sendMail: (opts) => sendViaBrevo(opts) };
     return transporter;
@@ -114,7 +187,7 @@ function getTransporter() {
   const emailPass = process.env.EMAIL_PASS;
 
   if (!emailUser || !emailPass || emailUser === 'your_email@gmail.com') {
-    console.warn('⚠️  Email not configured. Set BREVO_API_KEY (or RESEND_API_KEY) + EMAIL_FROM, or EMAIL_USER/EMAIL_PASS, to enable email.');
+    console.warn('⚠️  Email not configured. Set GMAIL_* OAuth creds, BREVO_API_KEY, or RESEND_API_KEY (+ EMAIL_FROM), or EMAIL_USER/EMAIL_PASS, to enable email.');
     return null;
   }
 

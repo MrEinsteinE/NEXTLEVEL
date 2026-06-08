@@ -352,7 +352,8 @@ app.get('/api/health', (req, res) => {
     uptime: process.uptime(),
     // Which email channel the deployed code will use (names only, no secrets) —
     // diagnostic for "why aren't emails sending". 'none' = no provider configured.
-    email: process.env.BREVO_API_KEY ? 'brevo'
+    email: process.env.GMAIL_REFRESH_TOKEN ? 'gmail'
+      : process.env.BREVO_API_KEY ? 'brevo'
       : process.env.RESEND_API_KEY ? 'resend'
       : (process.env.EMAIL_USER && process.env.EMAIL_PASS) ? 'smtp' : 'none',
     emailFromSet: !!process.env.EMAIL_FROM,
