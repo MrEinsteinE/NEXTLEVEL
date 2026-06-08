@@ -14,6 +14,11 @@ function escapeHtml(s) {
 // Create reusable transporter
 let transporter = null;
 
+// Records the most recent email-send failure (no secrets) so it can be surfaced
+// for diagnostics (the senders are fire-and-forget, so errors are otherwise hidden).
+let _lastEmailError = null;
+export function getLastEmailError() { return _lastEmailError; }
+
 // Parse EMAIL_FROM ("Name <email>" or "email") into { name, email }.
 function parseFrom(raw, fallbackEmail) {
   const s = (raw || '').trim();
@@ -49,7 +54,11 @@ async function sendViaBrevo({ subject, html, to }) {
       const detail = await r.text().catch(() => '');
       throw new Error(`Brevo ${r.status}: ${detail.slice(0, 300)}`);
     }
+    _lastEmailError = null;
     return r.json().catch(() => ({}));
+  } catch (e) {
+    _lastEmailError = { at: new Date().toISOString(), provider: 'brevo', message: String((e && e.message) || e).slice(0, 300) };
+    throw e;
   } finally {
     clearTimeout(timer);
   }

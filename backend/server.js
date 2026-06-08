@@ -11,6 +11,7 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import ChatMessage from './models/ChatMessage.js';
+import { getLastEmailError } from './services/emailService.js';
 
 // Routes
 import authRoutes from './routes/auth.js';
@@ -354,7 +355,8 @@ app.get('/api/health', (req, res) => {
     email: process.env.BREVO_API_KEY ? 'brevo'
       : process.env.RESEND_API_KEY ? 'resend'
       : (process.env.EMAIL_USER && process.env.EMAIL_PASS) ? 'smtp' : 'none',
-    emailFromSet: !!process.env.EMAIL_FROM
+    emailFromSet: !!process.env.EMAIL_FROM,
+    lastEmailError: getLastEmailError()
   });
 });
 
