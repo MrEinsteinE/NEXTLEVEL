@@ -9,7 +9,7 @@ import './index.css'
 import './dark-theme.css'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { startKeepAlive } from './utils/keepAlive'
-import { attachCsrf } from './utils/csrf.js'
+import { attachCsrf, ensureCsrfToken, getCsrfToken } from './utils/csrf.js'
 
 // Register the service worker (PWA install + offline shell + web push). The fetch
 // handler is network-first and only touches navigations, so it doesn't interfere
@@ -33,6 +33,27 @@ if ('serviceWorker' in navigator) {
   axios.defaults.withCredentials = true;
   // Attach the CSRF token header to state-changing requests made via raw axios.
   axios.interceptors.request.use(attachCsrf);
+  // Cross-site, the CSRF cookie lives on the backend domain and JS can't read it,
+  // so fetch + cache the token now (shared with the `api` axios instance too).
+  ensureCsrfToken(axios);
+  // Self-heal: if a mutation is rejected for a missing/stale CSRF token, refresh
+  // the token and retry the request once (covers cold-start / race conditions).
+  axios.interceptors.response.use(
+    (r) => r,
+    async (error) => {
+      const cfg = error.config;
+      const status = error.response && error.response.status;
+      const msg = (error.response && error.response.data && error.response.data.message) || '';
+      if (status === 403 && /csrf/i.test(msg) && cfg && !cfg._csrfRetried) {
+        cfg._csrfRetried = true;
+        await ensureCsrfToken(axios);
+        const t = getCsrfToken();
+        if (t) { cfg.headers = cfg.headers || {}; cfg.headers['X-CSRF-Token'] = t; }
+        return axios(cfg);
+      }
+      return Promise.reject(error);
+    }
+  );
 }
 
 // Initialize theme from localStorage so UI matches user's preference on load

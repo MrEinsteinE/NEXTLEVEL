@@ -451,6 +451,10 @@ app.use((req, res, next) => {
     cookieToken = crypto.randomBytes(32).toString('hex');
     res.cookie('csrfToken', cookieToken, csrfCookieOptions());
   }
+  // Expose the token so GET /api/csrf can hand it to the SPA. A cross-site
+  // frontend (Vercel ↔ Render are different domains) CANNOT read this cookie via
+  // document.cookie, so it fetches the value here and echoes it in the header.
+  req.csrfToken = cookieToken;
   const method = req.method.toUpperCase();
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return next();
   if (CSRF_EXEMPT.has(req.path)) return next();
@@ -460,6 +464,11 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Hands the current CSRF token to the SPA (it runs the middleware above, so the
+// cookie is set and req.csrfToken is populated). Needed cross-site, where the
+// frontend's JS can't read the backend-domain cookie. GET → CSRF-exempt.
+app.get('/api/csrf', (req, res) => res.json({ csrfToken: req.csrfToken || null }));
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/student', studentRoutes);
