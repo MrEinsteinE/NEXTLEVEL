@@ -151,11 +151,13 @@ function SyllabusChecklist({ branch, userKey }) {
       })
     })
     
+    // Rough estimate: ~1.5 focused study + practice hours per remaining topic.
+    const HOURS_PER_TOPIC = 1.5
     return {
       completed,
       total,
       percentage: total === 0 ? 0 : Math.round((completed / total) * 100),
-      hoursLeft: (total - completed) * 2 // Estimate 2 hours per topic
+      hoursLeft: Math.round((total - completed) * HOURS_PER_TOPIC)
     }
   }
 

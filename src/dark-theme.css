@@ -611,3 +611,12 @@
    Brand gradients (gradient-text, .gate-countdown hero, gradient
    submit buttons, brand active tabs) are intentionally preserved.
    ============================================================ */
+
+/* ============================================================
+   NotificationBell.jsx — unread rows used var(--color-primary-light)
+   (#EAE9FF, defined for light theme only), which is near-white on the
+   dark dropdown and made the light text unreadable. Re-tint with a
+   translucent primary so it still reads as "unread" but stays legible.
+   ============================================================ */
+[data-theme="dark"] .notif-item.unread { background: rgba(108, 99, 255, 0.18); }
+[data-theme="dark"] .notif-item.unread:hover { background: rgba(108, 99, 255, 0.26); }

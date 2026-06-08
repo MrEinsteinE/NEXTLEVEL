@@ -11,7 +11,25 @@ export const getDueFlashcards = async (req, res) => {
     const userId = req.user._id;
     const prog = await FlashcardProgress.findOne({ userId });
     if (!prog) return res.json({ success: true, due: [], custom: [] });
-    const due = (prog.cards || []).filter(c => new Date(c.nextReviewDate) <= new Date());
+    const now = new Date();
+    const customById = new Map((prog.customCards || []).map(cc => [String(cc._id), cc]));
+    // Scheduled cards that are due. If a scheduled card is one of the user's custom
+    // cards, attach its front/back/subject so it renders in the review deck.
+    const scheduledDue = (prog.cards || [])
+      .filter(c => new Date(c.nextReviewDate) <= now)
+      .map(c => {
+        const cc = customById.get(String(c.cardId));
+        return cc
+          ? { cardId: String(c.cardId), front: cc.front, back: cc.back, subject: cc.subject, isCustom: true }
+          : c;
+      });
+    // Brand-new custom cards (no SM-2 schedule yet) are always due so they show up
+    // in the "Due for review" deck immediately, not just the manage list below.
+    const scheduledIds = new Set((prog.cards || []).map(c => String(c.cardId)));
+    const newCustom = (prog.customCards || [])
+      .filter(cc => !scheduledIds.has(String(cc._id)))
+      .map(cc => ({ cardId: String(cc._id), front: cc.front, back: cc.back, subject: cc.subject, isCustom: true }));
+    const due = [...scheduledDue, ...newCustom];
     res.json({ success: true, due, custom: prog.customCards || [] });
   } catch (err) {
     console.error('getDueFlashcards error:', err);

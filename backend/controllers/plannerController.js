@@ -67,8 +67,13 @@ export const generatePlan = async (req, res) => {
       return { ...t, difficulty, hours: HOURS[difficulty] };
     });
 
-    const MIN_TOPICS = 2, MAX_TOPICS = 8;
-    const perDayTopicCap = Math.min(MAX_TOPICS, Math.max(MIN_TOPICS, Math.ceil(enriched.length / days)));
+    const MIN_TOPICS = 1, MAX_TOPICS = 8;
+    // Drive topics-per-day from the available window so the TARGET DATE actually
+    // changes the plan: a far-off target spreads fewer topics across more days; a
+    // near target packs more per day. (MIN_TOPICS=1 so distant dates don't all
+    // collapse onto the same floor and produce an identical plan.)
+    const idealPerDay = Math.ceil(enriched.length / days);
+    const perDayTopicCap = Math.min(MAX_TOPICS, Math.max(MIN_TOPICS, idealPerDay));
 
     const dailyPlans = [];
     let idx = 0;
